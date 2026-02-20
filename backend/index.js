@@ -9,7 +9,8 @@ const requiredEnvVars = [
   'OS_ACCESS_KEY',
   'OS_SECRET_KEY',
   'OS_BUCKET',
-  'EMBEDDING_API_KEY'
+  'EMBEDDING_API_KEY',
+  'MODEL_ACCESS_KEY'
 ];
 
 const missing = requiredEnvVars.filter(key => !process.env[key]);
@@ -31,7 +32,7 @@ const app = require('./app');
 const mongoose = require('mongoose');
 
 // Jalankan Server
-const PORT = process.env.PORT || 5000; 
+const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
@@ -39,10 +40,10 @@ const server = app.listen(PORT, () => {
 // Graceful shutdown for DigitalOcean App Platform deployments
 const gracefulShutdown = async (signal) => {
   console.log(`\n${signal} received. Closing server gracefully...`);
-  
+
   server.close(async () => {
     console.log('HTTP server closed.');
-    
+
     try {
       await mongoose.connection.close(false);
       console.log('MongoDB connection closed.');
