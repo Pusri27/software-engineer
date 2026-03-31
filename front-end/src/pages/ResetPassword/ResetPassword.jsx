@@ -105,7 +105,7 @@ const ResetPassword = () => {
                   alt="Logo" 
                   style={{ 
                     width: '200px', 
-                    marginBottom: '60px',
+                    marginBottom: '50px',
                     display: 'block',
                     marginLeft: 'auto',
                     marginRight: 'auto'
@@ -166,7 +166,7 @@ const ResetPassword = () => {
                   </p>
                 </div>
 
-                <div className="forgot-password" style={{ marginTop: '-2px' }}>
+                <div className="forgot-password" style={{ marginTop: '-10px' }}>
                   Remember your password?{" "}
                   <span className="forgot-link" onClick={() => navigate("/login")}>
                     Back to Login

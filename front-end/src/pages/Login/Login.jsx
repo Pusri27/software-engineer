@@ -2,7 +2,7 @@ import './Login.css'
 import logoOnly from '../../assets/Logo/Logo Only_White.png'
 import textOnly from '../../assets/Logo/Text Only_White.png'
 import { useNavigate } from 'react-router-dom';
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useRef} from 'react';
 import { AUTH_ENDPOINTS } from '../../config/api';
 import { Loading } from '@/components/ui/loading';
 
@@ -12,6 +12,7 @@ function Login() {
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const containerRef = useRef(null);
 
   // Check if user is already logged in
   // If yes, redirect to home page (avoid staying on login page)
@@ -21,6 +22,27 @@ function Login() {
       navigate('/');
     }
   }, [navigate]);
+
+  // Cursor glow effect
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleMouseMove = (e) => {
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      container.style.setProperty('--mouse-x', `${x}px`);
+      container.style.setProperty('--mouse-y', `${y}px`);
+    };
+
+    container.addEventListener('mousemove', handleMouseMove);
+    
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
 
   // Handle login form submit
   const handleLogin = async (e) =>{
@@ -75,9 +97,7 @@ function Login() {
     <div className="app">
       {isLoading && <Loading message="Logging in..." fullScreen={true} />}
       
-      <div className="login-container">
-        <div className="separator"></div>
-        
+      <div className="login-container" ref={containerRef}>
         {/* Decorative Icons */}
         <div className="docs-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="0.17" strokeLinecap="round" strokeLinejoin="round">
