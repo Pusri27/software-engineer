@@ -154,7 +154,6 @@ const WorkLogList = ({ filters = { searchQuery: "", selectedTags: [], dateRange:
   return (
     <div className="worklog-list">
       <Button onClick={handleCreateNew} className="create-new-button">
-        <span className="create-new-icon">📋</span>
         CREATE NEW
       </Button>
 

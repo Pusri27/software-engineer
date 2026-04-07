@@ -198,7 +198,6 @@ body {
   background-color: #000000 !important;
   background-attachment: fixed;
   min-height: 100vh;
-  overflow: hidden;
   position: relative;
 }
 
