@@ -137,3 +137,10 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Kada Project Specific
+Users/
+backend/uploads/
+test_db.js
+backend/test_chatbot_api.js
+backend/test_mongo.js

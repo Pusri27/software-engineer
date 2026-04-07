@@ -102,58 +102,30 @@ const deleteFromSpaces = async (fileUrl) => {
   }
 };
 
-// ✅ UPDATED: Process content and media arrays - handle BOTH base64 AND URLs
+// BASE64 MODE: Process content and media arrays — store base64 directly in MongoDB
+// No upload to external storage needed
 const processMediaUploads = async (content, media) => {
   let processedContent = content;
   let processedMedia = [];
 
-  // 1. Process inline images in TipTap content (base64 → URL)
-  if (content) {
-    const base64ImageRegex = /<img[^>]+src="(data:image\/[^"]+)"/g;
-    const matches = [...content.matchAll(base64ImageRegex)];
-    
-    for (const match of matches) {
-      const base64Src = match[1];
-      try {
-        const url = await uploadBase64ToSpaces(base64Src, 'inline_image', 'inline');
-        processedContent = processedContent.replace(base64Src, url);
-      } catch (error) {
-        // Silent fail for inline images
-      }
-    }
-  }
+  // 1. Inline images in TipTap content: keep base64 data URIs as-is
+  // (they will be stored directly in MongoDB inside the HTML content string)
+  // No upload needed.
 
   // 2. Process media attachments
   if (media && Array.isArray(media)) {
     for (const item of media) {
       try {
-        // Case A: Already has URL (uploaded via /api/upload endpoint)
-        if (item.url && !item.url.startsWith('data:')) {
+        if (typeof item === 'string') {
+          // Legacy: plain string URL or base64
+          processedMedia.push({ url: item, type: 'unknown', name: 'file', size: 0 });
+        } else if (item && (item.url || item.data)) {
+          // New object format { url, type, name, size } or { data, type, name, size }
           processedMedia.push({
-            url: item.url,
-            type: item.type,
-            name: item.name,
-            size: item.size
-          });
-        }
-        // Case B: Has base64 data (fallback/legacy support)
-        else if (item.data && item.data.startsWith('data:')) {
-          const url = await uploadBase64ToSpaces(item.data, item.name || 'attachment', 'attachment');
-          processedMedia.push({
-            url: url,
-            type: item.type,
-            name: item.name,
-            size: item.size
-          });
-        }
-        // Case C: Old format with url as base64 (backward compatibility)
-        else if (item.url && item.url.startsWith('data:')) {
-          const url = await uploadBase64ToSpaces(item.url, item.name || 'attachment', 'attachment');
-          processedMedia.push({
-            url: url,
-            type: item.type,
-            name: item.name,
-            size: item.size
+            url: item.url || item.data,
+            type: item.type || 'unknown',
+            name: item.name || 'file',
+            size: item.size || 0
           });
         }
       } catch (error) {

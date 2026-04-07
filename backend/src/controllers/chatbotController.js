@@ -108,7 +108,7 @@ const { v4: uuidv4 } = require('uuid');
  */
 exports.postMessageChatbot = async (req, res) => {
     try {
-        const { message, session_id } = req.body;
+        const { message, session_id, history } = req.body;
 
         // ============================================================
         // INPUT VALIDATION
@@ -167,12 +167,18 @@ exports.postMessageChatbot = async (req, res) => {
         // - Balance: More context = better answers BUT slower AI
         // - 3 logs = ~1800 chars = ~450 tokens
         // - Enough for comprehensive answers without excessive delay
+        let relevantLogs = [];
         const searchStart = Date.now();
-        
-        const relevantLogs = await cacheService.getSearchResults(
-            queryEmbedding,
-            () => chatbotService.searchWorkLogs(queryEmbedding, 3)
-        );
+
+        if (queryEmbedding) {
+            relevantLogs = await cacheService.getSearchResults(
+                queryEmbedding,
+                () => chatbotService.searchWorkLogs(queryEmbedding, 3)
+            );
+        } else {
+            console.warn('⚠️ No embedding generated - using fallback search directly');
+            relevantLogs = await chatbotService.fallbackSearch(3);
+        }
 
         const searchTime = Date.now() - searchStart;
 
@@ -190,7 +196,7 @@ exports.postMessageChatbot = async (req, res) => {
 
         // Handle edge case: No WorkLogs in database
         if (!context) {
-            return await this.handleNoContext(req.user._id, actualSessionId, message, res);
+            return await exports.handleNoContext(req.user._id, actualSessionId, message, res);
         }
 
         // ============================================================
@@ -217,7 +223,9 @@ exports.postMessageChatbot = async (req, res) => {
 
         const systemPrompt = chatbotService.generateSystemPrompt(context);
         const aiStart = Date.now();
-        const aiAnswer = await aiService.generateResponse(systemPrompt, message);
+        // Pass prior conversation history for multi-turn memory
+        const conversationHistory = Array.isArray(history) ? history.slice(-6) : [];
+        const aiAnswer = await aiService.generateResponse(systemPrompt, message, conversationHistory);
         const aiTime = Date.now() - aiStart;
 
         // ============================================================
@@ -255,6 +263,12 @@ exports.postMessageChatbot = async (req, res) => {
             message: message,
             response: aiAnswer,
             context_logs_count: relevantLogs.length,
+            sources: relevantLogs.map(log => ({
+                id: log._id,
+                title: log.title,
+                author: log.userName,
+                date: log.datetime
+            })),
             timestamp: new Date(),
             processing_time: `${totalTime}ms`,
             performance: {
@@ -293,7 +307,13 @@ exports.postMessageChatbot = async (req, res) => {
             session_id: actualSessionId,
             message: message,
             response: aiAnswer,
-            context_used: relevantLogs.length
+            context_used: relevantLogs.length,
+            sources: relevantLogs.map(log => ({
+                id: log._id,
+                title: log.title,
+                author: log.userName,
+                date: log.datetime
+            }))
         }).catch(err => {
             // Silent fail for background save
         });
@@ -481,6 +501,7 @@ exports.handleNoContext = async (userId, sessionId, message, res) => {
         message: requestChat.message,
         response: requestChat.response,
         context_logs_count: 0, // No logs available
+        sources: [],
         timestamp: requestChat.createdAt
     });
 };
@@ -514,7 +535,7 @@ exports.getChatHistory = async (req, res) => {
     try {
         // No need to convert - MongoDB handles it automatically in aggregation
         const userId = req.user._id;
-        
+
         // Parse pagination parameters
         const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 10, 50); // Max 50 per page
@@ -529,12 +550,12 @@ exports.getChatHistory = async (req, res) => {
         const sessions = await Chat.aggregate([
             // Stage 1: Filter by user (ObjectId auto-converted by MongoDB)
             { $match: { user: userId } },
-            
+
             // Stage 2: Sort by creation time (oldest first for grouping)
             { $sort: { createdAt: 1 } },
-            
+
             // Stage 3: Group by session_id and collect metadata
-            { 
+            {
                 $group: {
                     _id: "$session_id",
                     first_message: { $first: "$message" },
@@ -544,13 +565,13 @@ exports.getChatHistory = async (req, res) => {
                     message_count: { $sum: 1 }
                 }
             },
-            
+
             // Stage 4: Sort by most recent first
             { $sort: { last_updated: -1 } },
-            
+
             // Stage 5: Pagination - Skip
             { $skip: skip },
-            
+
             // Stage 6: Pagination - Limit
             { $limit: limit }
         ]);
@@ -565,7 +586,7 @@ exports.getChatHistory = async (req, res) => {
             updated_at: session.last_updated
         }));
 
-        res.json({ 
+        res.json({
             chats: history,
             pagination: {
                 current_page: page,
@@ -579,9 +600,9 @@ exports.getChatHistory = async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching chat history:', error);
-        return res.status(500).json({ 
+        return res.status(500).json({
             error: "Failed to fetch chat history",
-            details: error.message 
+            details: error.message
         });
     }
 };
@@ -619,8 +640,8 @@ exports.deleteChatSession = async (req, res) => {
 
         // Check if any documents were deleted
         if (result.deletedCount === 0) {
-            return res.status(404).json({ 
-                error: "Chat session not found or already deleted" 
+            return res.status(404).json({
+                error: "Chat session not found or already deleted"
             });
         }
 
@@ -632,9 +653,9 @@ exports.deleteChatSession = async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting chat session:', error);
-        return res.status(500).json({ 
+        return res.status(500).json({
             error: "Failed to delete chat session",
-            details: error.message 
+            details: error.message
         });
     }
 };

@@ -142,18 +142,29 @@ const ChatBot = () => {
     setIsLoading(true);
 
     try {
-      // Call AI backend endpoint
-      const response = await fetch(CHATBOT_ENDPOINTS.SEND_MESSAGE, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          message: userQuestion,
-          session_id: sessionId
-        })
-      });
+        // Build conversation history from current messages (max 6 = 3 turns)
+        // Format: [{role:'user', content:'...'}, {role:'assistant', content:'...'}, ...]
+        const history = messages
+          .filter(m => !m.isError)
+          .slice(-6)
+          .map(m => ({
+            role: m.sender === 'user' ? 'user' : 'assistant',
+            content: m.text,
+          }));
+
+        // Call AI backend endpoint
+        const response = await fetch(CHATBOT_ENDPOINTS.SEND_MESSAGE, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            message: userQuestion,
+            session_id: sessionId,
+            history,
+          })
+        });
 
       if (!response.ok) {
         throw new Error(`AI request failed: ${response.status}`);
@@ -167,8 +178,9 @@ const ChatBot = () => {
         text: data.response,
         sender: "bot",
         timestamp: new Date(data.timestamp),
-        contextUsed: data.context_logs_count,  // Show how many worklogs were used
-        processingTime: data.processing_time   // Show performance
+        contextUsed: data.context_logs_count,
+        sources: data.sources, // Store the actual log details
+        processingTime: data.processing_time
       };
 
       setMessages(prev => [...prev, botMessage]);
@@ -241,7 +253,8 @@ const ChatBot = () => {
             text: exchange.response,
             sender: "bot",
             timestamp: new Date(exchange.createdAt),
-            contextUsed: exchange.context_used
+            contextUsed: exchange.context_used,
+            sources: exchange.sources // Retrieve stored sources from DB
           });
         });
       }

@@ -12,6 +12,14 @@ const stripHtmlTags = (html) => {
   return tmp.textContent || tmp.innerText || "";
 };
 
+// Estimate reading time based on word count (avg 200 wpm)
+const getReadTime = (text) => {
+  if (!text) return "< 1 min read";
+  const words = text.trim().split(/\s+/).length;
+  const minutes = Math.ceil(words / 200);
+  return `${minutes} min read`;
+};
+
 // Utility function to ensure hashtag has only one #
 const formatHashtag = (tag) => {
   if (!tag) return "";
@@ -117,6 +125,7 @@ const WorkLogList = ({ filters = { searchQuery: "", selectedTags: [], dateRange:
             hour: '2-digit', 
             minute: '2-digit' 
           }),
+          readTime: getReadTime(plainTextContent),
           author: {
             name: worklog.user?.name || "Unknown",
             division: worklog.user?.division || "Unknown Division",
@@ -202,6 +211,7 @@ const WorkLogList = ({ filters = { searchQuery: "", selectedTags: [], dateRange:
                   <br />
                   {log.time}
                 </span>
+                <span className="worklog-item-read-time">⏱ {log.readTime}</span>
               </div>
             </article>
           ))

@@ -129,6 +129,7 @@ class ChatbotService {
                 },
                 {
                     $project: {
+                        _id: 1,
                         title: 1,
                         content: { $substr: ["$content", 0, 600] },
                         tag: 1,
@@ -194,6 +195,7 @@ class ChatbotService {
             .lean();
 
         return results.map(log => ({
+            _id: log._id,
             title: log.title,
             content: log.content?.substring(0, 800), // Limit but keep reasonable
             tag: log.tag,

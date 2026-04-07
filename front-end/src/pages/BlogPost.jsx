@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, FileText, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, FileText, Pencil, Trash2, Download } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
@@ -21,6 +21,8 @@ import "@/components/tiptap-node/document-node/document-node.scss";
 import "@/components/tiptap-node/image-node/image-node.scss";
 import "@/components/tiptap-node/video-node/video-node.scss";
 import "@/components/tiptap-node/audio-node/audio-node.scss";
+import ReactionBar from "@/components/ReactionBar/ReactionBar";
+import CommentSection from "@/components/CommentSection/CommentSection";
 
 // Custom styles for BlogPost
 const blogPostStyles = `
@@ -105,7 +107,76 @@ const BlogPost = () => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [relatedWorklogs, setRelatedWorklogs] = useState([]);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const { toast } = useToast();
+
+  // ── Export helpers ──────────────────────────────────────────────────
+  const exportPDF = () => {
+    setShowExportMenu(false);
+    // Inject print-only class to content then call print
+    const style = document.createElement('style');
+    style.id = 'print-style';
+    style.textContent = `
+      @media print {
+        body > * { display: none !important; }
+        #blog-post-printable { display: block !important; }
+        #blog-post-printable { position: fixed; top: 0; left: 0; width: 100%; padding: 2rem; }
+        .no-print { display: none !important; }
+      }
+    `;
+    document.head.appendChild(style);
+    window.print();
+    setTimeout(() => document.getElementById('print-style')?.remove(), 1000);
+  };
+
+  const htmlToMarkdown = (html) => {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    // Remove style/script tags
+    el.querySelectorAll('style, script').forEach(e => e.remove());
+    let md = el.innerHTML
+      .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n')
+      .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n')
+      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n')
+      .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n')
+      .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
+      .replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
+      .replace(/<em[^>]*>(.*?)<\/em>/gi, '_$1_')
+      .replace(/<i[^>]*>(.*?)<\/i>/gi, '_$1_')
+      .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
+      .replace(/<pre[^>]*>(.*?)<\/pre>/gis, '```\n$1\n```')
+      .replace(/<a[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
+      .replace(/<img[^>]*src="([^"]+)"[^>]*alt="([^"]*)"/gi, '![$2]($1)')
+      .replace(/<img[^>]*src="([^"]+)"[^>]*/gi, '![]($1)')
+      .replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n')
+      .replace(/<\/?(ul|ol)[^>]*>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '  \n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<p[^>]*>/gi, '')
+      .replace(/<[^>]+>/g, '') // strip remaining tags
+      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+      .replace(/\n{3,}/g, '\n\n').trim();
+    return md;
+  };
+
+  const exportMarkdown = () => {
+    setShowExportMenu(false);
+    if (!displayPost) return;
+    const title = displayPost.title || 'worklog';
+    const author = post?.user?.name || 'Unknown';
+    const date = new Date(displayPost.datetime || displayPost.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const tags = (displayPost.tag || []).map(t => `#${t.replace(/^#+/, '')}`).join(' ');
+    const body = htmlToMarkdown(displayPost.content || '');
+    const markdown = `# ${title}\n\n**Author:** ${author}  \n**Date:** ${date}  \n**Tags:** ${tags || '—'}\n\n---\n\n${body}`;
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Get current user ID
   useEffect(() => {
@@ -175,6 +246,24 @@ const BlogPost = () => {
     };
     fetchFriends();
   }, []);
+
+  // Fetch related worklogs (semantic similarity via vector search)
+  useEffect(() => {
+    if (!postId) return;
+    const fetchRelated = async () => {
+      try {
+        const token = sessionStorage.getItem('token');
+        const res = await fetch(WORKLOG_ENDPOINTS.RELATED(postId), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        setRelatedWorklogs(data.related || []);
+      } catch (e) {
+        // silent fail — related is non-critical
+      }
+    };
+    fetchRelated();
+  }, [postId]);
 
   // Check apakah user adalah owner atau collaborator
   const isOwner = post && currentUserId && (post.user?._id === currentUserId || post.user?.id === currentUserId);
@@ -491,6 +580,43 @@ const BlogPost = () => {
                     )}
                   </div>
                 )}
+
+                {/* Export dropdown — always visible */}
+                <div style={{ position: 'relative' }} className="no-print">
+                  <Button
+                    variant="outline"
+                    className="gap-2 h-9"
+                    onClick={() => setShowExportMenu(prev => !prev)}
+                  >
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                  {showExportMenu && (
+                    <div style={{
+                      position: 'absolute', right: 0, top: '110%',
+                      background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))',
+                      borderRadius: '0.75rem', boxShadow: '0 8px 24px hsl(0,0%,0%,0.12)',
+                      minWidth: '160px', zIndex: 50, overflow: 'hidden'
+                    }}>
+                      <button
+                        onClick={exportPDF}
+                        style={{ display: 'block', width: '100%', padding: '0.65rem 1rem',
+                          textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: '0.875rem', color: 'hsl(var(--foreground))' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--accent))'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                      >🖨️ Export as PDF</button>
+                      <button
+                        onClick={exportMarkdown}
+                        style={{ display: 'block', width: '100%', padding: '0.65rem 1rem',
+                          textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: '0.875rem', color: 'hsl(var(--foreground))' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--accent))'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                      >📄 Export as Markdown</button>
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* Header Bar */}
@@ -545,12 +671,66 @@ const BlogPost = () => {
                   </p>
                 )}
 
+                {/* 👍 Reaction / Kudos Bar */}
+                {!snapshot && postId && (
+                  <ReactionBar worklogId={postId} />
+                )}
+
                 <div 
                   className="prose prose-lg max-w-none text-foreground"
                   dangerouslySetInnerHTML={processContent(displayPost.content)}
                 />
+
+                {/* 💬 Comment Section */}
+                {!snapshot && postId && (
+                  <CommentSection worklogId={postId} />
+                )}
               </div>
             </div>
+
+            {/* Related Worklogs */}
+            {relatedWorklogs.length > 0 && (
+              <div className="max-w-4xl mx-auto mt-8">
+                <h2 style={{
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  marginBottom: '0.75rem',
+                  color: 'hsl(var(--muted-foreground))',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}>Related Worklogs</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                  {relatedWorklogs.map((rel) => (
+                    <div
+                      key={rel._id}
+                      onClick={() => navigate(`/blog-post?id=${rel._id}`)}
+                      style={{
+                        background: 'hsl(250 60% 96%)',
+                        border: '1px solid hsl(250 60% 88%)',
+                        borderRadius: '0.75rem',
+                        padding: '0.875rem 1rem',
+                        cursor: 'pointer',
+                        transition: 'transform 0.15s, box-shadow 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 16px hsl(250 60% 70% / 0.25)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+                    >
+                      <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem', color: 'hsl(var(--foreground))' }}>
+                        {rel.title}
+                      </p>
+                      {rel.tag?.length > 0 && (
+                        <p style={{ fontSize: '0.75rem', color: 'hsl(250 60% 50%)', marginBottom: '0.35rem' }}>
+                          {rel.tag.slice(0, 3).map(t => t.startsWith('#') ? t : `#${t}`).join(' ')}
+                        </p>
+                      )}
+                      <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                        {rel.userName} &middot; {new Date(rel.datetime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <FriendsList/>

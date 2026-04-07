@@ -21,7 +21,7 @@ const formatHashtag = (tag) => {
   return `#${tag.replace(/^#+/, '')}`;
 };
 
-const HomeContent = ({ filters = { searchQuery: "", selectedTags: [], dateRange: { start: "", end: "" } } }) => {
+const HomeContent = ({ filters = { searchQuery: "", selectedTags: [], dateRange: { start: "", end: "" } }, onWorklogsLoaded }) => {
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +133,9 @@ const HomeContent = ({ filters = { searchQuery: "", selectedTags: [], dateRange:
         }
     
         // Backend filterWorkLogs() now handles division filtering with JWT token
+
+        // Notify parent with raw worklog data (for AI summary)
+        onWorklogsLoaded?.(worklogsArray);
 
         const convertedPosts = worklogsArray.map((worklog) => {
           // Strip HTML tags from content for preview

@@ -4,6 +4,7 @@
   background-color: hsl(var(--card));
   padding: 1.5rem;
   display: none;
+  overflow-y: auto;
 }
 
 @media (min-width: 1024px) {

@@ -3,12 +3,21 @@ const express = require('express');
 const cors = require("cors");
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+
+console.log('📚 Requiring Swagger...');
 const setupSwagger = require('./src/swagger/swagger');
+console.log('📚 Requiring Auth Routes...');
 const authRoutes = require('./src/routes/authRoutes');
+console.log('📚 Requiring Admin Routes...');
 const adminRoutes = require('./src/routes/adminRoutes');
+console.log('📚 Requiring Worklog Routes...');
 const worklogRoutes = require('./src/routes/workLogRoutes');
+console.log('📚 Requiring Chatbot Routes...');
 const chatBotRoutes = require('./src/routes/chatbotRoutes');
+console.log('📚 Requiring Upload Routes...');
 const uploadRoutes = require('./src/routes/uploadRoutes');
+const reactionRoutes = require('./src/routes/reactionRoutes');
+const commentRoutes = require('./src/routes/commentRoutes');
 
 const app = express();
 //believe this is needed for rate limiting to work correctly behind proxies (like DigitalOcean App Platform)
@@ -23,27 +32,32 @@ app.use(helmet({
 // CORS middleware to allow frontend requests
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  
+
   // Allow localhost with all dev ports (5173, 5174, 8080, etc) OR production frontend
   if (origin && (origin.startsWith('http://localhost:') || origin.startsWith('https://frontend-he2bh.ondigitalocean.app') || origin.startsWith('https://nebwork.app'))) {
     res.header('Access-Control-Allow-Origin', origin);
   }
-  
+
   // Allow production frontend (set FRONTEND_URL in App Platform env vars)
   if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
     res.header('Access-Control-Allow-Origin', origin);
   }
-  
+
   res.header('Access-Control-Allow-Credentials', 'true')
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
+
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
   } else {
     next();
   }
+});
+
+// Root route
+app.get('/', (req, res) => {
+  res.redirect('/api-docs');
 });
 
 // Middleware
@@ -60,14 +74,23 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Handle Chrome DevTools probing gracefully to avoid 404/CSP noise
+app.get('/.well-known/appspecific/com.chrome.devtools.json', (req, res) => {
+  res.status(204).end();
+});
+
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/worklogs', worklogRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/chatbot', chatBotRoutes);
+app.use('/api/reactions', reactionRoutes);
+app.use('/api/comments', commentRoutes);
 
 // Setup Swagger Docs
+console.log('📚 Setting up Swagger...');
 setupSwagger(app);
+console.log('✅ Swagger setup finished');
 
 module.exports = app;

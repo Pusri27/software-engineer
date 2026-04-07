@@ -37,7 +37,7 @@ class MediaManager {
 
   /**
    * Mark a media URL for deletion
-   * @param {string} url - DigitalOcean URL or blob URL
+   * @param {string} url - base64 data URI, blob URL, or external URL
    */
   addPendingDeletion(url) {
     // If it's a blob URL (not uploaded yet), just revoke it
@@ -46,9 +46,14 @@ class MediaManager {
       URL.revokeObjectURL(url)
       return
     }
+
+    // If it's a base64 data URI — no external file to delete, just track it
+    if (url.startsWith('data:')) {
+      this.pendingDeletions.add(url)
+      return
+    }
     
     // If it's a DigitalOcean URL, mark for deletion
-    // Accept both direct and CDN URLs
     const isDigitalOceanUrl = url.includes('nebwork-storage') || 
                               url.includes('digitaloceanspaces.com') ||
                               url.includes('.cdn.digitaloceanspaces.com')
@@ -56,9 +61,8 @@ class MediaManager {
     if (isDigitalOceanUrl) {
       this.pendingDeletions.add(url)
       this.saveDeletionsToStorage() // Persist to localStorage
-    } else {
-      console.warn(`[MediaManager] ⚠️ URL not recognized as DigitalOcean URL: ${url}`)
     }
+    // For any other URL type, silently ignore (no external storage to clean up)
   }
 
   /**

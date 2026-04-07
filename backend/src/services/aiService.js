@@ -43,9 +43,10 @@
 class AIService {
     constructor() {
         // API Configuration
-        this.apiUrl = "https://inference.do-ai.run/v1/chat/completions";
-        this.model = "deepseek-r1-distill-llama-70b";
-        
+        this.apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+        this.model = "stepfun/step-3.5-flash:free"; // Primary model
+        // Alternative: "qwen/qwen-2.5-72b-instruct:free" or "qwen/qwen-turbo:free"
+
         // Performance tracking
         // Stores last 100 response times for averaging
         this.requestTimes = [];
@@ -114,31 +115,39 @@ class AIService {
      * @throws {Error} - On timeout, API error, or invalid response
      * ================================================================
      */
-    async generateResponse(systemPrompt, userMessage) {
+    async generateResponse(systemPrompt, userMessage, history = []) {
         const headers = {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.MODEL_ACCESS_KEY}`
+            "Authorization": `Bearer ${process.env.MODEL_ACCESS_KEY}`,
+            "HTTP-Referer": "https://nebwork.app", // Optional, for OpenRouter rankings
+            "X-Title": "NEBWORK" // Optional, for OpenRouter rankings
         };
 
         if (!process.env.MODEL_ACCESS_KEY) {
-            throw new Error("MODEL_ACCESS_KEY not configured");
+            throw new Error("MODEL_ACCESS_KEY (OpenRouter Key) not configured");
         }
+
+        // Build multi-turn messages: system → prior history → new user message
+        // Limit history to last 6 messages (3 turns) to stay within token budget
+        const historySlice = (history || []).slice(-6);
+        const messages = [
+            { role: "system", content: systemPrompt },
+            ...historySlice,
+            { role: "user", content: userMessage }
+        ];
 
         const payload = {
             model: this.model,
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userMessage }
-            ],
-            max_tokens: 1024, // Increased to prevent response truncation
-            temperature: 0.75, // Balanced: creative but focused
+            messages,
+            max_tokens: 1024,
+            temperature: 0.75,
             top_p: 0.9
         };
 
         // Estimate token counts for monitoring
         // Why? Helps us understand costs and performance
         const startTime = Date.now();
-        
+
         try {
             // Timeout protection: Abort request after 20 seconds
             // Why 20s? Geographic latency (400ms) + max generation time (15360ms) + buffer
@@ -181,7 +190,7 @@ class AIService {
             const duration = Date.now() - startTime;
             this.requestTimes.push(duration);
             if (this.requestTimes.length > 100) this.requestTimes.shift(); // Keep only last 100
-            
+
             return aiAnswer;
 
         } catch (error) {
