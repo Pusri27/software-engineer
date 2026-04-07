@@ -74,9 +74,11 @@ module.exports = {
           dateOfJoin: user.join_date
         }
       });
-      
     } catch (error) {
-      return res.status(500).json({message: 'Internal server error'});
+      return res.status(500).json({
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   },
   logout: async (req, res) => {

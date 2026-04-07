@@ -21,7 +21,13 @@ const chatSchema = new mongoose.Schema({
   context_used: {
     type: Number,
     default: 0
-  }
+  },
+  sources: [{
+    id: String,
+    title: String,
+    author: String,
+    date: Date
+  }]
 }, { 
   timestamps: true 
 });

@@ -98,12 +98,23 @@
 
 .worklog-item-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
 }
 
 .worklog-item-date {
   font-size: 0.875rem;
   color: hsl(var(--muted-foreground));
-  text-align: right;
+  text-align: left;
   line-height: 1.4;
+}
+
+.worklog-item-read-time {
+  font-size: 0.78rem;
+  color: hsl(var(--muted-foreground));
+  background: hsl(250, 60%, 85%);
+  border-radius: 1rem;
+  padding: 0.2rem 0.6rem;
+  font-weight: 500;
+  white-space: nowrap;
 }

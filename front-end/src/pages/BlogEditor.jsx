@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { WORKLOG_TEMPLATES, SCRATCH_OPTION } from "../config/templates";
 import { Button } from "@/components/ui/button";
 import { Search, Users, Save, X } from "lucide-react";
 import {
@@ -9,6 +10,7 @@ import {
 import {
   AlertDialog,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
@@ -26,7 +28,7 @@ import BASE_URL from "../config/api";
 import { useToast } from "@/hooks/use-toast";
 import { Loading } from "@/components/ui/loading";
 
-  const BlogEditor = () => {
+const BlogEditor = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
@@ -52,12 +54,17 @@ import { Loading } from "@/components/ui/loading";
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
   const [editorKey, setEditorKey] = useState(0); // Key to force re-mount editor
-  
+  const [showTemplateModal, setShowTemplateModal] = useState(!searchParams.get("id")); // show on create mode
+  const [draftSavedAt, setDraftSavedAt] = useState(null); // timestamp of last draft save
+  const [hasDraftRestored, setHasDraftRestored] = useState(false); // show restore banner
+  const autoSaveTimerRef = useRef(null);
+  const DRAFT_KEY = "nebwork_draft_new";
+
   // Ref to track if we're programmatically updating content (to avoid triggering unsaved changes)
   const isProgrammaticUpdate = useRef(false);
   // Ref to avoid fetching the same post multiple times (prevents double-loading)
   const fetchedPostIdRef = useRef(null);
-  
+
   // Ref to store the content to use for editor re-mount (with DigitalOcean URLs)
   const contentForReMount = useRef(null);
 
@@ -79,17 +86,63 @@ import { Loading } from "@/components/ui/loading";
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
     // Cleanup blob URLs when component unmounts
     // (Actual file deletion happens during navigation in handleNavigateAway)
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
       import("@/lib/media-manager").then(({ mediaManager }) => {
         mediaManager.cleanup();
       });
     };
   }, [hasUnsavedChanges]);
+
+  // ── AUTO-SAVE DRAFT (create mode only) ──────────────────────────────
+  const triggerAutoSave = useCallback(() => {
+    if (isEditMode) return; // only for new worklogs
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          title: blogTitle,
+          tags: blogTags,
+          content: blogContent,
+          savedAt: new Date().toISOString(),
+        }));
+        setDraftSavedAt(new Date());
+      } catch (e) {
+        console.warn('Draft save failed:', e);
+      }
+    }, 2000); // 2-second debounce
+  }, [isEditMode, blogTitle, blogTags, blogContent]);
+
+  // Trigger auto-save whenever content/title/tags change in create mode
+  useEffect(() => {
+    if (!isEditMode && hasUnsavedChanges) triggerAutoSave();
+  }, [blogTitle, blogTags, blogContent]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Restore draft on mount (create mode only)
+  useEffect(() => {
+    if (isEditMode) return;
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (!saved) return;
+      const draft = JSON.parse(saved);
+      if (!draft?.title && !draft?.content) return;
+      // Only restore if it's a fresh create (no content yet loaded)
+      isProgrammaticUpdate.current = true;
+      setBlogTitle(draft.title || "");
+      setBlogTags(draft.tags || []);
+      setBlogContent(draft.content || "");
+      setEditorKey(prev => prev + 1);
+      setHasDraftRestored(true);
+      setTimeout(() => { isProgrammaticUpdate.current = false; }, 100);
+    } catch (e) {
+      console.warn('Draft restore failed:', e);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Get current user ID and division
   useEffect(() => {
@@ -107,7 +160,7 @@ import { Loading } from "@/components/ui/loading";
         const userData = data.user || data;
         setCurrentUserId(userData.id || userData._id);
         setCurrentUserDivision(userData.division || null);
-        
+
         // Set owner as current user ONLY in create mode
         // In edit mode, owner will be set from worklog data
         if (!postId) {
@@ -133,17 +186,17 @@ import { Loading } from "@/components/ui/loading";
       setBlogTitle("");
       setBlogTags([]);
       setBlogContent("");
-      
+
       // Reset media manager for new post
       import("@/lib/media-manager").then(({ mediaManager }) => {
         mediaManager.reset();
       });
-      
+
       // Reset flag after state updates
       setTimeout(() => {
         isProgrammaticUpdate.current = false;
       }, 100);
-      
+
       return;
     }
 
@@ -159,40 +212,40 @@ import { Loading } from "@/components/ui/loading";
           }
         });
         const data = await response.json();
-        
+
         // Check access before setting data
         if (currentUserId) {
           const isOwner = data.user?._id === currentUserId || data.user?.id === currentUserId;
-          const isCollaborator = data.collaborators?.some(collab => 
+          const isCollaborator = data.collaborators?.some(collab =>
             collab._id === currentUserId || collab.id === currentUserId
           );
-          
+
           if (!isOwner && !isCollaborator) {
             console.warn('Access denied: Not owner or collaborator');
             navigate(-1);
             return;
           }
         }
-        
+
         // Set flag before loading initial data
         isProgrammaticUpdate.current = true;
-        
+
         // Set data
         setBlogTitle(data.title || "");
         setBlogTags(data.tag || []);
         setBlogContent(data.content || "");
-        
+
         // Reset media manager when loading existing content
         const { mediaManager } = await import("@/lib/media-manager");
         mediaManager.reset();
-        
+
         // Set owner for CollabList
         if (data.user) {
-          const ownerAvatar = data.user.profile_photo || 
-                             data.user.profilePicture || 
-                             data.user.avatar || 
-                             "/placeholder.jpeg";
-          
+          const ownerAvatar = data.user.profile_photo ||
+            data.user.profilePicture ||
+            data.user.avatar ||
+            "/placeholder.jpeg";
+
           setOwner({
             id: data.user._id || data.user.id,
             name: data.user.name || "Unknown",
@@ -200,15 +253,15 @@ import { Loading } from "@/components/ui/loading";
             avatar: ownerAvatar
           });
         }
-        
+
         // Set collaborators for CollabList
         if (data.collaborators && data.collaborators.length > 0) {
           setCollaborators(data.collaborators.map(collab => {
-            const collabAvatar = collab.profile_photo || 
-                                collab.profilePicture || 
-                                collab.avatar || 
-                                "/placeholder.jpeg";
-            
+            const collabAvatar = collab.profile_photo ||
+              collab.profilePicture ||
+              collab.avatar ||
+              "/placeholder.jpeg";
+
             return {
               id: collab._id || collab.id,
               name: collab.name || "Unknown",
@@ -217,12 +270,12 @@ import { Loading } from "@/components/ui/loading";
             };
           }));
         }
-        
+
         // Reset the programmatic update flag after the state has been updated
         setTimeout(() => {
           isProgrammaticUpdate.current = false;
         }, 100);
-        
+
         // Reset editor to clear undo history after loading content
         setEditorKey(prev => prev + 1);
         setHasUnsavedChanges(false);
@@ -245,7 +298,7 @@ import { Loading } from "@/components/ui/loading";
   // Fetch friends dari backend (FILTER by division)
   useEffect(() => {
     if (!currentUserDivision) return; // Wait for division to load
-    
+
     const fetchFriends = async () => {
       try {
         const token = sessionStorage.getItem('token');
@@ -258,12 +311,12 @@ import { Loading } from "@/components/ui/loading";
         });
         const data = await response.json();
         const allUsers = data.data || data.employees || data || [];
-        
+
         // ✅ FILTER: Only show users from the same division
-        const friendsList = allUsers.filter(user => 
+        const friendsList = allUsers.filter(user =>
           user.division === currentUserDivision
         );
-        
+
         setFriends(friendsList);
       } catch (err) {
         console.error('Error fetching friends:', err);
@@ -278,17 +331,17 @@ import { Loading } from "@/components/ui/loading";
   // Map friends and sort: collaborators first, then others
   const allFriends = friends
     .filter((friend) => {
-  const friendId = friend._id || friend.id;
-  // Filter out current user (owner)
-  if (friendId === currentUserId) return false;
-  // Filter by search query
-  return (friend.name || friend.full_name || "").toLowerCase().includes(searchQuery.toLowerCase());
-})
+      const friendId = friend._id || friend.id;
+      // Filter out current user (owner)
+      if (friendId === currentUserId) return false;
+      // Filter by search query
+      return (friend.name || friend.full_name || "").toLowerCase().includes(searchQuery.toLowerCase());
+    })
     .map((friend) => {
-      const friendAvatar = friend.profile_photo || 
-                          friend.profilePicture || 
-                          friend.avatar || 
-                          "/placeholder.jpeg";
+      const friendAvatar = friend.profile_photo ||
+        friend.profilePicture ||
+        friend.avatar ||
+        "/placeholder.jpeg";
       return {
         id: friend._id || friend.id,
         name: friend.name || friend.full_name || "Unknown",
@@ -311,7 +364,7 @@ import { Loading } from "@/components/ui/loading";
     if (collaboratorIds.includes(friendId)) {
       return;
     }
-    
+
     setSelectedFriends((prev) =>
       prev.includes(friendId)
         ? prev.filter((id) => id !== friendId)
@@ -319,33 +372,33 @@ import { Loading } from "@/components/ui/loading";
     );
   };
 
- const handleInvite = () => {
+  const handleInvite = () => {
     if (selectedFriends.length === 0) return;
-    
+
     // Prepare data for confirmation
-    const friendsToInvite = allFriends.filter(friend => 
+    const friendsToInvite = allFriends.filter(friend =>
       selectedFriends.includes(friend.id)
     );
     setSelectedFriendsToInvite(friendsToInvite);
-    
+
     // Close invite dialog and show confirmation
     setInviteOpen(false);
     setShowInviteConfirmDialog(true);
   };
 
   const confirmInvite = async () => {
-    
+
     // Close invite dialog and show loading
     setShowInviteConfirmDialog(false);
     setIsAddingCollaborator(true);
-    
+
     // Get all selected friends (including already added collaborators)
     const allSelectedIds = [...new Set([...collaboratorIds, ...selectedFriends])];
-    const newCollaborators = allFriends.filter(friend => 
+    const newCollaborators = allFriends.filter(friend =>
       allSelectedIds.includes(friend.id)
     );
     setCollaborators(newCollaborators);
-    
+
     // Auto-save collaborators if in edit mode
     if (isEditMode && postId) {
       try {
@@ -365,7 +418,7 @@ import { Loading } from "@/components/ui/loading";
             media: mediaFiles,
           })
         });
-        
+
         // Show success toast notification
         toast({
           title: "✅ Collaborators added successfully!",
@@ -382,7 +435,7 @@ import { Loading } from "@/components/ui/loading";
         });
       }
     } else {
-    
+
       toast({
         title: "✅ Collaborators selected!",
         description: "Collaborators will be added when you save this work log.",
@@ -391,7 +444,7 @@ import { Loading } from "@/components/ui/loading";
       // Mark as unsaved changes
       setHasUnsavedChanges(true);
     }
-    
+
     // Hide loading and reset
     setIsAddingCollaborator(false);
     setSelectedFriendsToInvite([]);
@@ -405,22 +458,22 @@ import { Loading } from "@/components/ui/loading";
     setCollaboratorToRemove(collaborator);
     setShowRemoveDialog(true);
   };
-    
-     const confirmRemoveCollaborator = async () => {
+
+  const confirmRemoveCollaborator = async () => {
     if (!collaboratorToRemove) return;
-    
+
     const collaboratorId = collaboratorToRemove.id;
-    
+
     // Close remove dialog and show loading
     setShowRemoveDialog(false);
     setIsRemovingCollaborator(true);
-    
+
     // Remove from collaborators list
     const updatedCollaborators = collaborators.filter(c => c.id !== collaboratorId);
     setCollaborators(updatedCollaborators);
     // Also remove from selectedFriends if present
     setSelectedFriends(prev => prev.filter(id => id !== collaboratorId));
-    
+
     // Auto-save collaborator removal if in edit mode
     if (isEditMode && postId) {
       try {
@@ -441,7 +494,7 @@ import { Loading } from "@/components/ui/loading";
             media: mediaFiles,
           })
         });
-        
+
         // Show success toast notification
         toast({
           title: "✅ Collaborator removed successfully!",
@@ -467,7 +520,7 @@ import { Loading } from "@/components/ui/loading";
       // Mark as unsaved changes
       setHasUnsavedChanges(true);
     }
-    
+
     // Hide loading and reset
     setIsRemovingCollaborator(false);
     setCollaboratorToRemove(null);
@@ -488,11 +541,11 @@ import { Loading } from "@/components/ui/loading";
     const { mediaManager } = await import("@/lib/media-manager");
     const { deleteMediaFile } = await import("@/lib/tiptap-utils");
     const pendingDeletions = mediaManager.getPendingDeletions();
-    
+
     if (pendingDeletions.length > 0) {
       await mediaManager.deleteAllPending(deleteMediaFile);
     }
-    
+
     // Now navigate
     if (typeof path === 'function') {
       path();
@@ -508,10 +561,10 @@ import { Loading } from "@/components/ui/loading";
     // because the saved version still has them!
     // We only clear the pending deletions queue.
     const { mediaManager } = await import("@/lib/media-manager");
-    
+
     // FULL RESET - clear everything without deleting files
     mediaManager.reset();
-    
+
     setShowUnsavedDialog(false);
     setHasUnsavedChanges(false);
     if (pendingNavigation !== null) {
@@ -531,59 +584,40 @@ import { Loading } from "@/components/ui/loading";
     setShowUnsavedDialog(false);
   };
 
-  // Extract media URLs from HTML content
+  // Extract media URLs/base64 data URIs from HTML content
   const extractMediaFromContent = (htmlContent) => {
     const media = [];
+    if (!htmlContent) return media;
+
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, 'text/html');
 
-    // Extract images
-    const images = doc.querySelectorAll('img[src]');
-    images.forEach(img => {
+    const isExternalUrl = (src) => src && (src.includes('nebwork-storage') || src.includes('digitaloceanspaces.com'));
+    const isBase64 = (src) => src && src.startsWith('data:');
+    const isValidSrc = (src) => isExternalUrl(src) || isBase64(src);
+
+    // Extract images (base64 or external URL)
+    doc.querySelectorAll('img[src]').forEach(img => {
       const src = img.getAttribute('src');
-      if (src && (src.includes('nebwork-storage') || src.includes('digitaloceanspaces.com'))) {
-        media.push(src);
-      }
+      if (isValidSrc(src)) media.push(src);
     });
 
     // Extract videos
-    const videos = doc.querySelectorAll('video source[src], video[src]');
-    videos.forEach(video => {
+    doc.querySelectorAll('video source[src], video[src]').forEach(video => {
       const src = video.getAttribute('src');
-      if (src && (src.includes('nebwork-storage') || src.includes('digitaloceanspaces.com'))) {
-        media.push(src);
-      }
+      if (isValidSrc(src)) media.push(src);
     });
 
     // Extract audio
-    const audios = doc.querySelectorAll('audio source[src], audio[src]');
-    audios.forEach(audio => {
+    doc.querySelectorAll('audio source[src], audio[src]').forEach(audio => {
       const src = audio.getAttribute('src');
-      if (src && (src.includes('nebwork-storage') || src.includes('digitaloceanspaces.com'))) {
-        media.push(src);
-      }
+      if (isValidSrc(src)) media.push(src);
     });
 
     // Extract documents from TipTap document nodes
-    const documentNodes = doc.querySelectorAll('div[data-type="document"][data-src], [data-type="document"][data-src]');
-    documentNodes.forEach(docNode => {
+    doc.querySelectorAll('div[data-type="document"][data-src], [data-type="document"][data-src]').forEach(docNode => {
       const src = docNode.getAttribute('data-src');
-      if (src && (src.includes('nebwork-storage') || src.includes('digitaloceanspaces.com'))) {
-        media.push(src);
-      }
-    });
-
-    // Also extract documents from regular links and iframes (fallback)
-    const documents = doc.querySelectorAll('a[href*="nebwork-storage"], a[href*="digitaloceanspaces.com"], iframe[src*="nebwork-storage"], iframe[src*="digitaloceanspaces.com"]');
-    documents.forEach(doc => {
-      const src = doc.getAttribute('href') || doc.getAttribute('src');
-      if (src && (src.includes('nebwork-storage') || src.includes('digitaloceanspaces.com')) && !media.includes(src)) {
-        const extension = src.split('.').pop().toLowerCase().split('?')[0];
-        const isDoc = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'].includes(extension);
-        if (isDoc) {
-          media.push(src);
-        }
-      }
+      if (isValidSrc(src)) media.push(src);
     });
 
     return media;
@@ -603,17 +637,17 @@ import { Loading } from "@/components/ui/loading";
       const { handleImageUpload, deleteMediaFile } = await import("@/lib/tiptap-utils");
 
       // Step 1: Upload all pending media files
-      
+
       const urlMap = await mediaManager.uploadAllPending(handleImageUpload);
-   
+
       // Step 2: Replace blob URLs with DigitalOcean URLs in content
       let finalContent = mediaManager.replaceBlobUrlsInContent(blogContent, urlMap);
-      
+
       // Step 3: SKIP deletion on save - only delete when user leaves editor
       // This allows undo/redo to work even after saving
       const pendingDeletions = mediaManager.getPendingDeletions();
 
-      
+
       // Note: Deletions are tracked but not executed on save
       // They will be executed when user navigates away from the editor
 
@@ -662,46 +696,53 @@ import { Loading } from "@/components/ui/loading";
         });
       }
 
-      
+
       // CRITICAL: Update the editor content with final content (blob URLs replaced with DigitalOcean URLs)
       // Set flag to prevent triggering unsaved changes
       isProgrammaticUpdate.current = true;
-      
+
       // Reset media manager BEFORE updating state (clear blob URLs)
       mediaManager.reset();
-      
+
       // Store the final content in a ref so it's immediately available for re-mount
       contentForReMount.current = finalContent;
-      
+
       // Update the content state with final content (has DigitalOcean URLs)
       setBlogContent(finalContent);
-      
+
       // Force re-mount the editor with new content
       // The editor will use contentForReMount.current which has DigitalOcean URLs
       setEditorKey(prev => prev + 1);
-      
+
       // Reset the flag after re-mount completes
       setTimeout(() => {
         isProgrammaticUpdate.current = false;
       }, 100);
-      
+
       // Reset ONLY uploads after save (keep deletions for undo support)
       mediaManager.resetUploads();
-      
+
       setSaveOpen(false);
       setCommitMessage("");
       setHasUnsavedChanges(false);
-      
+
+      // Clear draft on successful save (create mode)
+      if (!isEditMode) {
+        localStorage.removeItem(DRAFT_KEY);
+        setDraftSavedAt(null);
+        setHasDraftRestored(false);
+      }
+
       // Hide loading state
       setIsSaving(false);
-      
+
       // Show success toast notification
       toast({
         title: "✅ Work log saved successfully!",
         description: "Your changes have been saved.",
         duration: 3000,
       });
-      
+
       // Only navigate if there's a pending navigation (user tried to leave while editing)
       if (pendingNavigation !== null) {
         // Delete pending deletions before navigating
@@ -709,7 +750,7 @@ import { Loading } from "@/components/ui/loading";
         if (pendingDeletions.length > 0) {
           await mediaManager.deleteAllPending(deleteMediaFile);
         }
-        
+
         // Now navigate
         if (typeof pendingNavigation === 'function') {
           pendingNavigation();
@@ -723,10 +764,10 @@ import { Loading } from "@/components/ui/loading";
       // Otherwise stay on the page - don't navigate to /worklog
     } catch (err) {
       console.error('Error saving blog:', err);
-      
+
       // Hide loading state on error
       setIsSaving(false);
-      
+
       // Handle validation errors
       if (err.validationErrors) {
         // Combine all validation errors into one message
@@ -735,13 +776,13 @@ import { Loading } from "@/components/ui/loading";
           content: 'Content',
           tag: 'Tags'
         };
-        
+
         const errorList = Object.entries(err.validationErrors)
           .map(([field, message]) => {
             const fieldName = fieldNames[field] || field;
             return `${fieldName}: ${message}`;
           });
-        
+
         toast({
           variant: "destructive",
           title: "Validation Failed",
@@ -777,7 +818,7 @@ import { Loading } from "@/components/ui/loading";
           duration: 3000,
         });
       }
-      
+
       // Hide loading state on error
       setIsSaving(false);
     }
@@ -788,8 +829,77 @@ import { Loading } from "@/components/ui/loading";
     return <Loading fullScreen message="Loading worklog..." />;
   }
 
+  // Apply a template: pre-fill title, tags, content
+  const applyTemplate = (template) => {
+    setShowTemplateModal(false);
+    if (template.id === 'scratch') return;
+    isProgrammaticUpdate.current = true;
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    setBlogTitle(template.defaultTitle + today);
+    setBlogTags(template.defaultTags || []);
+    setBlogContent(template.content);
+    contentForReMount.current = template.content;
+    setEditorKey(prev => prev + 1);
+    setTimeout(() => { isProgrammaticUpdate.current = false; }, 100);
+  };
+
   return (
     <div className="flex h-screen bg-background">
+      {/* Template Picker Modal */}
+      {showTemplateModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'hsl(var(--background) / 0.85)',
+          backdropFilter: 'blur(6px)', zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            background: 'hsl(var(--card))', borderRadius: '1.25rem',
+            boxShadow: '0 8px 48px hsl(250 60% 20% / 0.25)',
+            padding: '2rem', maxWidth: '640px', width: '100%',
+            border: '1px solid hsl(var(--border))'
+          }}>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '0.35rem', color: 'hsl(var(--foreground))' }}>
+              Choose a Template
+            </h2>
+            <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem' }}>
+              Pick a template to get started quickly, or write from scratch.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              {WORKLOG_TEMPLATES.map(tpl => (
+                <button
+                  key={tpl.id}
+                  onClick={() => applyTemplate(tpl)}
+                  style={{
+                    background: 'hsl(250 60% 97%)', border: '2px solid hsl(250 60% 88%)',
+                    borderRadius: '0.875rem', padding: '1rem 0.875rem',
+                    cursor: 'pointer', textAlign: 'left',
+                    transition: 'border-color 0.15s, transform 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'hsl(250 60% 60%)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'hsl(250 60% 88%)'; e.currentTarget.style.transform = ''; }}
+                >
+                  <span style={{ fontSize: '1.75rem', display: 'block', marginBottom: '0.5rem' }}>{tpl.icon}</span>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'hsl(var(--foreground))', marginBottom: '0.25rem' }}>{tpl.name}</p>
+                  <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>{tpl.description}</p>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => applyTemplate(SCRATCH_OPTION)}
+              style={{
+                width: '100%', padding: '0.75rem', borderRadius: '0.75rem',
+                border: '1.5px dashed hsl(var(--border))', background: 'transparent',
+                cursor: 'pointer', fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))',
+                transition: 'background 0.15s'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'hsl(var(--accent))'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+            >
+              ✏️ Start from scratch
+            </button>
+          </div>
+        </div>
+      )}
       <Menubar
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -801,6 +911,55 @@ import { Loading } from "@/components/ui/loading";
 
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 flex flex-col relative">
+            {/* Draft restored banner */}
+            {hasDraftRestored && !isEditMode && (
+              <div style={{
+                background: 'hsl(250 60% 96%)',
+                borderBottom: '1px solid hsl(250 60% 85%)',
+                padding: '0.5rem 1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '0.85rem',
+                color: 'hsl(250 60% 40%)',
+                gap: '0.5rem',
+              }}>
+                <span>📋 Draft restored from your last session.</span>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem(DRAFT_KEY);
+                    setHasDraftRestored(false);
+                    isProgrammaticUpdate.current = true;
+                    setBlogTitle(''); setBlogTags([]); setBlogContent('');
+                    setEditorKey(prev => prev + 1);
+                    setTimeout(() => { isProgrammaticUpdate.current = false; }, 100);
+                  }}
+                  style={{ fontSize: '0.78rem', textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', color: 'inherit' }}
+                >
+                  Discard draft
+                </button>
+              </div>
+            )}
+
+            {/* Draft auto-save indicator */}
+            {draftSavedAt && !isEditMode && (
+              <div style={{
+                position: 'absolute',
+                bottom: '1rem',
+                right: '1.5rem',
+                fontSize: '0.75rem',
+                color: 'hsl(var(--muted-foreground))',
+                background: 'hsl(var(--background))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '0.5rem',
+                padding: '0.25rem 0.6rem',
+                zIndex: 10,
+                pointerEvents: 'none',
+              }}>
+                ✓ Draft saved at {draftSavedAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
+
             {/* SimpleEditor with toolbar - toolbar will be sticky */}
             <div className="flex-1 overflow-y-auto">
               <SimpleEditor
@@ -837,21 +996,21 @@ import { Loading } from "@/components/ui/loading";
             <div className="sticky bottom-6 self-end mr-6 mb-6 flex flex-col gap-3 z-50" style={{ marginTop: '-120px' }}>
               {/* INVITE DIALOG - Only visible to owner */}
               {currentUserId === owner?.id && (
-              <AlertDialog open={inviteOpen} onOpenChange={setInviteOpen}>
-                <Tooltip delay={200}>
-                  <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-full h-14 w-14"
-                      >
-                        <Users style={{ width: '20px', height: '20px' }} />
-                      </Button>
-                    </AlertDialogTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Invite</TooltipContent>
-                </Tooltip>
+                <AlertDialog open={inviteOpen} onOpenChange={setInviteOpen}>
+                  <Tooltip delay={200}>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="rounded-full h-14 w-14"
+                        >
+                          <Users style={{ width: '20px', height: '20px' }} />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Invite</TooltipContent>
+                  </Tooltip>
                   <AlertDialogContent className="max-w-2xl">
                     <AlertDialogHeader>
                       <div className="flex items-center justify-between">
@@ -867,6 +1026,9 @@ import { Loading } from "@/components/ui/loading";
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
+                      <AlertDialogDescription className="text-center">
+                        Choose colleagues to collaborate on this work log.
+                      </AlertDialogDescription>
                     </AlertDialogHeader>
 
                     <div className="space-y-4">
@@ -889,26 +1051,24 @@ import { Loading } from "@/components/ui/loading";
                           filteredFriends.map((friend) => {
                             const isCollaborator = collaboratorIds.includes(friend.id);
                             const isSelected = selectedFriends.includes(friend.id) || isCollaborator;
-                            
+
                             return (
                               <div
                                 key={friend.id}
                                 onClick={() => toggleFriendSelection(friend.id)}
-                                className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                                  isCollaborator 
-                                    ? "border-primary bg-accent/30 cursor-not-allowed opacity-75"
-                                    : `cursor-pointer hover:bg-accent/50 ${
-                                        isSelected
-                                          ? "border-primary bg-accent/30"
-                                          : "border-border"
-                                      }`
-                                }`}
+                                className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${isCollaborator
+                                  ? "border-primary bg-accent/30 cursor-not-allowed opacity-75"
+                                  : `cursor-pointer hover:bg-accent/50 ${isSelected
+                                    ? "border-primary bg-accent/30"
+                                    : "border-border"
+                                  }`
+                                  }`}
                               >
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
                                   disabled={isCollaborator}
-                                  onChange={() => {}}
+                                  onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer disabled:cursor-not-allowed"
                                 />
                                 <img
@@ -940,7 +1100,7 @@ import { Loading } from "@/components/ui/loading";
                       </div>
                     </div>
                   </AlertDialogContent>
-              </AlertDialog>)}
+                </AlertDialog>)}
 
               {/* SAVE WORKLOG DIALOG */}
               <AlertDialog open={saveOpen} onOpenChange={setSaveOpen}>
@@ -958,54 +1118,57 @@ import { Loading } from "@/components/ui/loading";
                   </TooltipTrigger>
                   <TooltipContent>Save Work Log</TooltipContent>
                 </Tooltip>
-                  <AlertDialogContent className="max-w-2xl">
-                    <AlertDialogHeader>
-                      <div className="flex items-center justify-between">
-                        <AlertDialogTitle className="text-xl font-bold flex-1 text-center">
-                          SAVE YOUR WORK LOG
-                        </AlertDialogTitle>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setSaveOpen(false)}
-                          className="h-8 w-8"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </AlertDialogHeader>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-center block mb-2 font-medium">
-                          What task/changes did you do?
-                        </label>
-                        <Textarea
-                          value={commitMessage}
-                          onChange={(e) => setCommitMessage(e.target.value)}
-                          className="min-h-[200px] resize-none"
-                          placeholder="Describe your changes..."
-                        />
-                      </div>
-
-                      <div className="flex justify-center pt-4">
-                        <Button
-                          onClick={handleSaveBlog}
-                          disabled={!commitMessage.trim()}
-                          className="px-12"
-                        >
-                          SUBMIT
-                        </Button>
-                      </div>
+                <AlertDialogContent className="max-w-2xl">
+                  <AlertDialogHeader>
+                    <div className="flex items-center justify-between">
+                      <AlertDialogTitle className="text-xl font-bold flex-1 text-center">
+                        SAVE YOUR WORK LOG
+                      </AlertDialogTitle>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSaveOpen(false)}
+                        className="h-8 w-8"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </AlertDialogContent>
+                    <AlertDialogDescription className="text-center">
+                      Provide a brief description of what you've changed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-center block mb-2 font-medium">
+                        What task/changes did you do?
+                      </label>
+                      <Textarea
+                        value={commitMessage}
+                        onChange={(e) => setCommitMessage(e.target.value)}
+                        className="min-h-[200px] resize-none"
+                        placeholder="Describe your changes..."
+                      />
+                    </div>
+
+                    <div className="flex justify-center pt-4">
+                      <Button
+                        onClick={handleSaveBlog}
+                        disabled={!commitMessage.trim()}
+                        className="px-12"
+                      >
+                        SUBMIT
+                      </Button>
+                    </div>
+                  </div>
+                </AlertDialogContent>
               </AlertDialog>
             </div>
           </div>
 
-          <CollabList 
-            owner={owner} 
-            collaborators={collaborators} 
+          <CollabList
+            owner={owner}
+            collaborators={collaborators}
             onRemoveCollaborator={currentUserId === owner?.id ? handleRemoveCollaborator : undefined}
             isOwner={currentUserId === owner?.id}
             onNavigate={handleNavigationAttempt}
@@ -1020,6 +1183,9 @@ import { Loading } from "@/components/ui/loading";
             <AlertDialogTitle className="text-xl font-bold text-center">
               Unsaved Changes
             </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              You have unsaved changes that will be lost if you continue.
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="py-4">
@@ -1063,6 +1229,9 @@ import { Loading } from "@/components/ui/loading";
             <AlertDialogTitle className="text-xl font-bold text-center">
               Saving Work Log
             </AlertDialogTitle>
+            <AlertDialogDescription className="sr-only">
+              Your work log is being saved to the server.
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="py-8 flex flex-col items-center gap-4">
@@ -1081,6 +1250,9 @@ import { Loading } from "@/components/ui/loading";
             <AlertDialogTitle className="text-xl font-bold text-center">
               Adding Collaborators
             </AlertDialogTitle>
+            <AlertDialogDescription className="sr-only">
+              We are adding the selected collaborators to this work log.
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="py-8 flex flex-col items-center gap-4">
@@ -1099,6 +1271,9 @@ import { Loading } from "@/components/ui/loading";
             <AlertDialogTitle className="text-xl font-bold text-center">
               Removing Collaborator
             </AlertDialogTitle>
+            <AlertDialogDescription className="sr-only">
+              The selected collaborator is being removed from this work log.
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="py-8 flex flex-col items-center gap-4">
@@ -1110,13 +1285,16 @@ import { Loading } from "@/components/ui/loading";
         </AlertDialogContent>
       </AlertDialog>
 
-         {/* Remove Collaborator Confirmation Dialog */}
+      {/* Remove Collaborator Confirmation Dialog */}
       <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold text-center">
               Remove Collaborator
             </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Confirm if you want to remove this person from the project.
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="py-4">
@@ -1163,17 +1341,20 @@ import { Loading } from "@/components/ui/loading";
             <AlertDialogTitle className="text-xl font-bold text-center">
               Invite Collaborators
             </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Confirm the invitation for the selected friends.
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="py-4 space-y-3">
             <p className="text-center text-muted-foreground">
               Are you sure you want to invite the following collaborator{selectedFriendsToInvite.length > 1 ? 's' : ''}?
             </p>
-            
+
             {/* List of collaborators to invite */}
             <div className="max-h-48 overflow-y-auto space-y-2 px-2">
               {selectedFriendsToInvite.map((friend) => (
-                <div 
+                <div
                   key={friend.id}
                   className="flex items-center gap-3 p-2 rounded-lg bg-accent/30 border border-border"
                 >
@@ -1213,7 +1394,7 @@ import { Loading } from "@/components/ui/loading";
         </AlertDialogContent>
       </AlertDialog>
 
-  
+
     </div>
   );
 };

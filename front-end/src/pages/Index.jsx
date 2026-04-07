@@ -7,6 +7,8 @@ import HomeContent from "@/components/HomeContent/HomeContent";
 const Index = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filters, setFilters] = useState({ searchQuery: "", selectedTags: [], dateRange: { start: "", end: "" } });
+  // Lifted state: receive the loaded worklogs from HomeContent → pass to WorklogSummary
+  const [homeWorklogs, setHomeWorklogs] = useState([]);
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
@@ -23,8 +25,8 @@ const Index = () => {
         <Navbar onFilterChange={handleFilterChange} />
 
         <div className="flex-1 flex overflow-hidden">
-          <HomeContent filters={filters} />
-          <FriendsList />
+          <HomeContent filters={filters} onWorklogsLoaded={setHomeWorklogs} />
+          <FriendsList worklogs={homeWorklogs} />
         </div>
       </main>
     </div>

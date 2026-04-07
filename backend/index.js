@@ -1,5 +1,8 @@
 // server.js atau app.js
 require('dotenv').config(); //harus paling atassss
+const dns = require('dns');
+// Use public DNS to fix MongoDB Atlas SRV resolution issues (ESERVFAIL)
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 // Validate required environment variables
 const requiredEnvVars = [
@@ -9,7 +12,8 @@ const requiredEnvVars = [
   'OS_ACCESS_KEY',
   'OS_SECRET_KEY',
   'OS_BUCKET',
-  'EMBEDDING_API_KEY'
+  'EMBEDDING_API_KEY',
+  'MODEL_ACCESS_KEY'
 ];
 
 const missing = requiredEnvVars.filter(key => !process.env[key]);
@@ -21,17 +25,22 @@ if (missing.length > 0) {
 
 console.log('✅ All required environment variables are set');
 
+console.log('📚 Requiring DB config...');
 const connectDB = require('./src/config/db');
 
 // connect to database
+console.log('🔌 Calling connectDB()...');
 connectDB();
 
 // create app from app.js
+console.log('🏗️ Requiring app...');
 const app = require('./app');
+console.log('✅ App required');
 const mongoose = require('mongoose');
 
 // Jalankan Server
-const PORT = process.env.PORT || 5000; 
+const PORT = process.env.PORT || 5000;
+console.log(`🚀 Attempting to listen on port ${PORT}...`);
 const server = app.listen(PORT, () => {
   console.log(`✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
@@ -39,10 +48,10 @@ const server = app.listen(PORT, () => {
 // Graceful shutdown for DigitalOcean App Platform deployments
 const gracefulShutdown = async (signal) => {
   console.log(`\n${signal} received. Closing server gracefully...`);
-  
+
   server.close(async () => {
     console.log('HTTP server closed.');
-    
+
     try {
       await mongoose.connection.close(false);
       console.log('MongoDB connection closed.');

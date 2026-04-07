@@ -1,4 +1,4 @@
-import { Home, MessageCircle, ClipboardList, ChevronLeft, FileText } from "lucide-react";
+import { Home, MessageCircle, ClipboardList, ChevronLeft, FileText, BarChart2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -219,6 +219,18 @@ const Menubar = ({ collapsed, onToggleCollapse, onNavigate }) => {
               >
                 <ClipboardList className="menubar-nav-icon" />
                 {!collapsed && <span>Work Log</span>}
+              </Button>
+            </Link>
+            <Link to="/my-stats" onClick={(e) => handleMenuClick(e, "/my-stats")}>
+              <Button
+                variant="ghost"
+                className={cn(
+                  "menubar-nav-button",
+                  activeMenu === "/my-stats" && "menubar-nav-button-active"
+                )}
+              >
+                <BarChart2 className="menubar-nav-icon" />
+                {!collapsed && <span>My Stats</span>}
               </Button>
             </Link>
           </div>

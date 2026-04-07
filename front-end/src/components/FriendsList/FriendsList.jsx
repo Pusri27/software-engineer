@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./FriendsList.css";
 import { AUTH_ENDPOINTS, ADMIN_ENDPOINTS } from "../../config/api";
+import WorklogSummary from "@/components/WorklogSummary/WorklogSummary";
 
-const FriendsList = ({ userDivision, userId, autoFetch = true }) => {
+const FriendsList = ({ userDivision, userId, autoFetch = true, worklogs = [] }) => {
   const navigate = useNavigate();
   const [friends, setFriends] = useState([
     {
@@ -152,6 +153,9 @@ const FriendsList = ({ userDivision, userId, autoFetch = true }) => {
           ))
         )}
       </div>
+
+      {/* AI-generated summary of all worklogs */}
+      <WorklogSummary worklogs={worklogs} />
     </aside>
   );
 };

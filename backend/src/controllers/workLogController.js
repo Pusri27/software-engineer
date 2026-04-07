@@ -3,6 +3,8 @@ const LogHistory = require("../models/LogHistory");
 const User = require("../models/User");
 const { generateEmbedding, prepareTextForEmbedding } = require("../services/embeddingService");
 const { processMediaUploads, extractMediaUrls, deleteFromSpaces } = require("../services/mediaService");
+const aiService = require("../services/aiService");
+const tagService = require("../services/tagService");
 
 exports.addWorkLog = async (req, res) => {
   try {
@@ -27,6 +29,15 @@ exports.addWorkLog = async (req, res) => {
       embedding
     });
     res.status(201).json(log);
+
+    // 🤖 Auto-tag (fire-and-forget) — only if user provided < 2 tags
+    if (!tag || tag.length < 2) {
+      tagService.generateTags(title, processedContent).then(aiTags => {
+        if (aiTags.length > 0) {
+          WorkLog.findByIdAndUpdate(log._id, { tag: aiTags }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -79,6 +90,16 @@ exports.editWorkLog = async (req, res) => {
       }
     });
     res.json(updated);
+
+    // 🤖 Auto-tag (fire-and-forget) — only if edited result has < 2 tags
+    const finalTags = req.body.tag || log.tag || [];
+    if (finalTags.length < 2) {
+      tagService.generateTags(updated.title, processedContent).then(aiTags => {
+        if (aiTags.length > 0) {
+          WorkLog.findByIdAndUpdate(updated._id, { tag: aiTags }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -382,3 +403,193 @@ exports.getWorkLogById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// GET /api/worklogs/my-stats — personal worklog activity statistics
+exports.getMyStats = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // ── 1. All user's own worklogs ────────────────────────────────────
+    const allLogs = await WorkLog.find({ user: userId })
+      .select('title content tag datetime createdAt')
+      .sort({ datetime: -1 })
+      .lean();
+
+    const total = allLogs.length;
+
+    // ── 2. Daily counts — last 7 days ─────────────────────────────────
+    const now = new Date();
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - (6 - i));
+      return d;
+    });
+
+    const dailyCounts = days.map(day => {
+      const label = day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      const count = allLogs.filter(log => {
+        const logDate = new Date(log.datetime || log.createdAt);
+        return (
+          logDate.getFullYear() === day.getFullYear() &&
+          logDate.getMonth() === day.getMonth() &&
+          logDate.getDate() === day.getDate()
+        );
+      }).length;
+      return { date: label, count };
+    });
+
+    // ── 3. Top 5 tags ─────────────────────────────────────────────────
+    const tagCounts = {};
+    allLogs.forEach(log => {
+      (log.tag || []).forEach(t => {
+        const clean = t.replace(/^#+/, '').toLowerCase();
+        tagCounts[clean] = (tagCounts[clean] || 0) + 1;
+      });
+    });
+    const topTags = Object.entries(tagCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tag, count]) => ({ tag, count }));
+
+    // ── 4. Total word count ───────────────────────────────────────────
+    const totalWords = allLogs.reduce((sum, log) => {
+      const text = (log.content || '')
+        .replace(/<[^>]*>/g, ' ')
+        .trim();
+      const words = text.split(/\s+/).filter(Boolean).length;
+      return sum + words;
+    }, 0);
+
+    // ── 5. Streak — consecutive days with at least 1 worklog ─────────
+    let streak = 0;
+    const checkDate = new Date(now);
+    checkDate.setHours(0, 0, 0, 0);
+
+    while (true) {
+      const hasLog = allLogs.some(log => {
+        const logDate = new Date(log.datetime || log.createdAt);
+        return (
+          logDate.getFullYear() === checkDate.getFullYear() &&
+          logDate.getMonth() === checkDate.getMonth() &&
+          logDate.getDate() === checkDate.getDate()
+        );
+      });
+      if (!hasLog) break;
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    res.json({
+      total,
+      totalWords,
+      streak,
+      dailyCounts,
+      topTags,
+    });
+  } catch (error) {
+    console.error('❌ getMyStats error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// POST /api/worklogs/summarize — AI-generated summary of worklogs sent from frontend
+// Frontend sends exactly the worklogs visible on screen — no extra DB query needed
+exports.summarizeWorkLogs = async (req, res) => {
+  try {
+    const { worklogs } = req.body;
+
+    if (!worklogs || !Array.isArray(worklogs) || worklogs.length === 0) {
+      return res.status(400).json({ message: 'No worklogs to summarize.' });
+    }
+
+    // Build a compact, clean context string (base64 already stripped by frontend)
+    const context = worklogs.map((log, i) => {
+      const date = log.date
+        ? new Date(log.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+        : '';
+      const tags = (log.tag || []).join(', ');
+      const content = (log.content || '').substring(0, 250);
+      return [
+        `${i + 1}. "${log.title}"${date ? ` [${date}]` : ''}${tags ? ` (${tags})` : ''}`,
+        content ? `   ${content}` : null
+      ].filter(Boolean).join('\n');
+    }).join('\n\n');
+
+    // English instruction in both system and user message
+    const systemPrompt = `You are a team worklog summarizer assistant that ONLY responds in English.
+MANDATORY RULES:
+- ALWAYS use English. NEVER use any other language.
+- Write a SHORT summary of maximum 120 words.
+- Focus on main themes, achievements, and team activities.
+- Use a professional and positive tone.
+- Do not mention specific names, focus on activities.`;
+
+    const userMessage = `[ENGLISH ONLY] Write a short summary in English of the following ${worklogs.length} team worklogs:\n\n${context}\n\nSummary (in English):`;
+
+    const summary = await aiService.generateResponse(systemPrompt, userMessage);
+
+    res.json({ summary, totalLogs: worklogs.length });
+  } catch (error) {
+    console.error('❌ summarizeWorkLogs error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// GET /api/worklogs/:id/related — find semantically similar worklogs via vector search
+exports.getRelatedWorkLogs = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userDivision = req.user?.division;
+
+    // Fetch target worklog WITH its embedding (select: false by default)
+    const target = await WorkLog.findById(id).select('+embedding').lean();
+    if (!target) return res.status(404).json({ message: 'WorkLog not found' });
+    if (!target.embedding || target.embedding.length === 0) {
+      return res.json({ related: [] });
+    }
+
+    // Vector search for semantically similar worklogs
+    const results = await WorkLog.aggregate([
+      {
+        $vectorSearch: {
+          index: 'worklog_vector_index',
+          path: 'embedding',
+          queryVector: target.embedding,
+          numCandidates: 50,
+          limit: 6,
+        }
+      },
+      { $match: { _id: { $ne: target._id } } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'userInfo',
+          pipeline: [{ $project: { name: 1, division: 1, profile_photo: 1 } }]
+        }
+      },
+      { $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } },
+      { $match: { 'userInfo.division': userDivision } },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          tag: 1,
+          datetime: 1,
+          score: { $meta: 'vectorSearchScore' },
+          userName: '$userInfo.name',
+          userPhoto: '$userInfo.profile_photo',
+        }
+      },
+      { $limit: 4 }
+    ]);
+
+    res.json({ related: results });
+  } catch (error) {
+    console.error('❌ getRelatedWorkLogs error:', error.message);
+    res.json({ related: [] }); // graceful fallback
+  }
+};
+

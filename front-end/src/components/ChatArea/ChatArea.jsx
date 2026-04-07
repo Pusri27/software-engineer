@@ -1,9 +1,11 @@
-import { Send, Plus, History, Loader2 } from "lucide-react";
+import { Send, Plus, History, Loader2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import SimpleMarkdown from "../SimpleMarkdown/SimpleMarkdown";
+import { Link } from "react-router-dom";
 import "./ChatArea.css";
 
 
@@ -52,16 +54,42 @@ const ChatArea = ({
                     message.isError && "bg-red-100 border-red-300"
                   )}
                 >
-                  <p className="chat-message-text">{message.text}</p>
+                  <div className="chat-message-text prose prose-sm dark:prose-invert">
+                    {message.sender === "bot" ? (
+                      <SimpleMarkdown>{message.text}</SimpleMarkdown>
+                    ) : (
+                      <p>{message.text}</p>
+                    )}
+                  </div>
                   
                   {/* Show metadata for bot responses */}
                   {message.sender === "bot" && !message.isError && (
-                    <div className="text-xs text-gray-500 mt-2 flex items-center gap-3">
-                      {message.contextUsed !== undefined && (
-                        <span>📚 {message.contextUsed} worklogs used</span>
+                    <div className="mt-3 space-y-2 border-t pt-2 border-gray-100 dark:border-gray-800">
+                      {message.contextUsed > 0 && (
+                        <div className="flex flex-col gap-1">
+                          <div className="text-xs text-gray-500 flex items-center gap-1.5 font-medium">
+                            <BookOpen className="w-3 h-3" />
+                            <span>{message.contextUsed} worklogs referenced:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 pl-1">
+                            {message.sources?.map((source, idx) => (
+                              <Link
+                                key={`${source.id}-${idx}`}
+                                to={`/worklogs/${source.id}/versions`}
+                                className="text-[10px] px-2 py-0.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-md transition-colors border border-gray-200 dark:border-gray-700 max-w-[150px] truncate"
+                                title={source.title}
+                              >
+                                {source.title}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
                       )}
+                      
                       {message.processingTime && (
-                        <span>⚡ {message.processingTime}</span>
+                        <div className="text-[10px] text-gray-400 italic">
+                          Generated in {message.processingTime}
+                        </div>
                       )}
                     </div>
                   )}

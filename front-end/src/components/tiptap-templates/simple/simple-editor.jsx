@@ -85,8 +85,100 @@ import { UPLOAD_LIMITS } from "@/lib/media-constants"
 
 // --- Styles ---
 import "@/components/tiptap-templates/simple/simple-editor.scss"
+import Mention from "@tiptap/extension-mention"
+import BASE_URL from "@/config/api"
 
 import content from "@/components/tiptap-templates/simple/data/content.json"
+
+// ── @Mention suggestion renderer ─────────────────────────────────────────────
+const createMentionSuggestion = () => ({
+  items: async ({ query }) => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const res = await fetch(`${BASE_URL}/api/admin/employees?limit=20&search=${encodeURIComponent(query)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const users = data.data || [];
+      return users
+        .filter(u => u.name?.toLowerCase().includes(query.toLowerCase()))
+        .slice(0, 6)
+        .map(u => ({ id: u._id || u.id, label: u.name, division: u.division }));
+    } catch (e) { return []; }
+  },
+
+  render: () => {
+    let popup;
+    let el;
+
+    return {
+      onStart: (props) => {
+        el = document.createElement('div');
+        Object.assign(el.style, {
+          position: 'fixed',
+          background: 'hsl(var(--card, 255 255 255))',
+          border: '1px solid hsl(215,20%,85%)',
+          borderRadius: '0.625rem',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          padding: '0.375rem',
+          zIndex: '9999',
+          minWidth: '160px',
+          maxWidth: '240px',
+          fontFamily: 'inherit',
+        });
+        document.body.appendChild(el);
+        renderMentionList(props, el);
+        // Position below cursor
+        const { x, y, height } = props.clientRect();
+        el.style.top = `${y + height + 4}px`;
+        el.style.left = `${x}px`;
+      },
+      onUpdate: (props) => {
+        renderMentionList(props, el);
+        if (props.clientRect) {
+          const { x, y, height } = props.clientRect();
+          el.style.top = `${y + height + 4}px`;
+          el.style.left = `${x}px`;
+        }
+      },
+      onKeyDown: (props) => {
+        if (props.event.key === 'Escape') { el?.remove(); return true; }
+        return false;
+      },
+      onExit: () => { el?.remove(); },
+    };
+  },
+});
+
+function renderMentionList(props, container) {
+  container.innerHTML = '';
+  if (!props.items.length) {
+    const empty = document.createElement('p');
+    empty.textContent = 'No users found';
+    Object.assign(empty.style, { padding: '0.5rem', fontSize: '0.8rem', color: '#999', margin: 0 });
+    container.appendChild(empty);
+    return;
+  }
+  props.items.forEach((item, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = item.label;
+    Object.assign(btn.style, {
+      display: 'block', width: '100%', padding: '0.4rem 0.625rem',
+      textAlign: 'left', background: i === props.selectedIndex ? 'hsl(250,60%,95%)' : 'none',
+      border: 'none', borderRadius: '0.375rem', cursor: 'pointer',
+      fontSize: '0.8rem', fontWeight: '500', color: '#333'
+    });
+    if (item.division) {
+      const div = document.createElement('span');
+      div.textContent = ' · ' + item.division;
+      Object.assign(div.style, { fontSize: '0.7rem', color: '#888', fontWeight: '400' });
+      btn.appendChild(div);
+    }
+    btn.addEventListener('click', () => props.command({ id: item.id, label: item.label }));
+    container.appendChild(btn);
+  });
+}
 
 const MainToolbarContent = ({
   onHighlighterClick,
@@ -278,6 +370,21 @@ export function SimpleEditor({
         limit: UPLOAD_LIMITS.DOCUMENT.maxFiles,
         upload: handleImageUpload,
         onError: (error) => console.error("Document upload failed:", error),
+      }),
+      Mention.configure({
+        HTMLAttributes: {
+          class: 'mention',
+          style: [
+            'background: hsl(250,60%,92%)',
+            'color: hsl(250,60%,35%)',
+            'border-radius: 0.25rem',
+            'padding: 0.1em 0.35em',
+            'font-weight: 600',
+            'font-size: 0.875em',
+          ].join(';'),
+        },
+        renderLabel: ({ node }) => `@${node.attrs.label ?? node.attrs.id}`,
+        suggestion: createMentionSuggestion(),
       }),
     ],
     content: initialContent || "",

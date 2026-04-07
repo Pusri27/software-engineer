@@ -11,6 +11,7 @@ import logoWithText from "@/assets/Logo/Logo with Text_White.png";
 import { useNavigate } from "react-router-dom";
 import { ADMIN_ENDPOINTS, AUTH_ENDPOINTS } from "../../config/api";
 import { toast } from "sonner";
+import AdminAnalytics from "./AdminAnalytics";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ const Admin = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
+  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'analytics'
 
   // Debounce search query
   useEffect(() => {
@@ -396,7 +398,38 @@ const Admin = () => {
 
       {/* Main Content */}
       <main className="admin-main">
-        <h2 className="page-title">MANAGE USERS</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+          <h2 className="page-title" style={{ margin: 0 }}>
+            {activeTab === 'users' ? 'MANAGE USERS' : 'TEAM ANALYTICS'}
+          </h2>
+          <div style={{ display: 'flex', gap: '0.5rem', background: '#f0f0f0', borderRadius: '0.5rem', padding: '0.25rem' }}>
+            <button
+              onClick={() => setActiveTab('users')}
+              style={{
+                padding: '0.4rem 1rem', borderRadius: '0.375rem', border: 'none',
+                fontSize: '0.875rem', cursor: 'pointer', fontWeight: activeTab === 'users' ? 700 : 400,
+                background: activeTab === 'users' ? 'white' : 'transparent',
+                boxShadow: activeTab === 'users' ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                color: '#333', transition: 'all 0.15s'
+              }}
+            >👥 Manage Users</button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              style={{
+                padding: '0.4rem 1rem', borderRadius: '0.375rem', border: 'none',
+                fontSize: '0.875rem', cursor: 'pointer', fontWeight: activeTab === 'analytics' ? 700 : 400,
+                background: activeTab === 'analytics' ? 'white' : 'transparent',
+                boxShadow: activeTab === 'analytics' ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                color: '#333', transition: 'all 0.15s'
+              }}
+            >📊 Analytics</button>
+          </div>
+        </div>
+
+        {activeTab === 'analytics' ? (
+          <AdminAnalytics />
+        ) : (
+          <div>
 
         {/* Search Bar */}
         <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -570,7 +603,9 @@ const Admin = () => {
               </button>
             </div>
           )}
-        </>
+          </>
+          )}
+          </div>
         )}
       </main>
 

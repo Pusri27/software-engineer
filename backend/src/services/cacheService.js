@@ -36,13 +36,13 @@ class CacheService {
         // Why: Embeddings don't change unless text changes
         // Example: "What is AI?" → [0.234, 0.456, 0.789, ...]
         this.embeddingCache = new NodeCache({ stdTTL: 3600 });
-        
+
         // Search Cache: Stores MongoDB vector search results
         // TTL: 300 seconds (5 minutes)
         // Why: WorkLogs update frequently, need fresher data
         // Example: embedding_key → [worklog1, worklog2, worklog3]
         this.searchCache = new NodeCache({ stdTTL: 300 });
-        
+
         // Request Deduplication: Track in-flight API requests
         // Why: If 2 users ask same question simultaneously, only call API once
         // Both users wait for same result instead of making duplicate calls
@@ -78,7 +78,7 @@ class CacheService {
         // Step 1: Create unique cache key from text
         // Same text = same key = same cache entry
         const cacheKey = this.hashText(text);
-        
+
         // Step 2: Check cache first (fastest path)
         const cached = this.embeddingCache.get(cacheKey);
         if (cached) {
@@ -92,7 +92,7 @@ class CacheService {
         }
 
         // Step 4: Generate new embedding (slow: 1500-2000ms)
-        
+
         // Create promise and store it for other requests to wait on
         const promise = generateFn(text)
             .then(embedding => {
@@ -145,12 +145,9 @@ class CacheService {
      */
     async getSearchResults(embedding, searchFn) {
         // Step 1: Create stable cache key from embedding vector
-        // We use first 20 dimensions because:
-        // - Full 3072 dims is too large for key
-        // - First 20 dims capture most of the semantic meaning
-        // - Rounded to 4 decimals for stability
+        if (!embedding) return await searchFn();
         const cacheKey = this.createEmbeddingKey(embedding);
-        
+
         // Step 2: Check cache first
         const cached = this.searchCache.get(cacheKey);
         if (cached) {
@@ -163,7 +160,7 @@ class CacheService {
         }
 
         // Step 4: Execute search (slow: 200-300ms)
-        
+
         const promise = searchFn()
             .then(results => {
                 // Success: Cache results for 5 minutes
@@ -214,14 +211,14 @@ class CacheService {
      */
     createEmbeddingKey(embedding) {
         // Validation: Ensure we have a valid embedding
-        if (!Array.isArray(embedding) || embedding.length === 0) {
-            throw new Error('Invalid embedding array');
+        if (!embedding || !Array.isArray(embedding) || embedding.length === 0) {
+            return 'default_search_key';
         }
-        
+
         // Take first 20 dimensions and round to 4 decimals for stability
         // Example: [0.23456789, 0.45678901] → ["0.2346", "0.4568"]
         const sample = embedding.slice(0, 20).map(val => val.toFixed(4));
-        
+
         // Join with comma and hash: ["0.2346", "0.4568"] → "0.2346,0.4568" → "hash_123"
         // This creates a stable, short key we can use for caching
         return this.hashText(sample.join(','));

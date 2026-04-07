@@ -232,105 +232,54 @@ export function isNodeTypeSelected(editor, types = []) {
 }
 
 /**
- * Handles image upload with progress tracking and abort capability
- * @param file The file to upload
- * @param onProgress Optional callback for tracking upload progress
- * @param abortSignal Optional AbortSignal for cancelling the upload
- * @returns Promise resolving to the URL of the uploaded image
+ * Converts a file to a base64 data URI (stored directly in MongoDB)
+ * No external storage needed — works without DigitalOcean Spaces configuration
+ * @param file The file to convert
+ * @param onProgress Optional callback for tracking progress (called once at 100%)
+ * @returns Promise resolving to the base64 data URI of the file
  */
 export const handleImageUpload = async (file, onProgress, abortSignal) => {
   // Validate file
   if (!file) {
-    console.error("No file provided")
     throw new Error("No file provided")
   }
 
   if (file.size > MAX_FILE_SIZE * 2) {
-    const errorMsg = `File size exceeds maximum allowed (${MAX_FILE_SIZE * 2 / (1024 * 1024)}MB`
-    console.error(errorMsg)
-    throw new Error(errorMsg)
+    throw new Error(`File size exceeds maximum allowed (${Math.round(MAX_FILE_SIZE * 2 / (1024 * 1024))}MB)`)
   }
 
-  try {
-    // Create FormData for file upload
-    const formData = new FormData()
-    formData.append('file', file)
-
-    // Get authentication token
-    const token = sessionStorage.getItem('token')
-    if (!token) {
-      console.error("No authentication token found")
-      throw new Error("Authentication required")
+  return new Promise((resolve, reject) => {
+    // Handle abort signal
+    if (abortSignal?.aborted) {
+      reject(new Error("Upload cancelled"))
+      return
     }
 
-    // Upload to backend
-    const xhr = new XMLHttpRequest()
+    const reader = new FileReader()
 
-    // Return a promise for the upload
-    return new Promise((resolve, reject) => {
-      // Handle abort signal
-      if (abortSignal) {
-        abortSignal.addEventListener('abort', () => {
-          xhr.abort()
-          reject(new Error("Upload cancelled"))
-        })
+    reader.onload = (e) => {
+      const base64DataUri = e.target?.result
+      if (base64DataUri) {
+        onProgress?.({ progress: 100 })
+        resolve(base64DataUri)
+      } else {
+        reject(new Error("Failed to read file as base64"))
       }
+    }
 
-      // Track upload progress
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const progress = (e.loaded / e.total) * 100
-          onProgress?.({ progress })
-        }
+    reader.onerror = () => {
+      reject(new Error("FileReader error while reading file"))
+    }
+
+    if (abortSignal) {
+      abortSignal.addEventListener('abort', () => {
+        reader.abort()
+        reject(new Error("Upload cancelled"))
       })
+    }
 
-      // Handle completion
-      xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
-          try {
-            const response = JSON.parse(xhr.responseText)
-            if (response.success && response.url) {
-              resolve(response.url)
-            } else {
-              console.error("Upload failed:", response.message || 'No URL returned')
-              reject(new Error(response.message || 'Upload failed'))
-            }
-          } catch (error) {
-            console.error("Failed to parse response:", error)
-            reject(new Error('Invalid server response'))
-          }
-        } else {
-          console.error("Upload failed with status:", xhr.status, "Response:", xhr.responseText)
-          try {
-            const response = JSON.parse(xhr.responseText)
-            reject(new Error(response.message || `Upload failed with status ${xhr.status}`))
-          } catch {
-            reject(new Error(`Upload failed with status ${xhr.status}`))
-          }
-        }
-      })
-
-      // Handle errors
-      xhr.addEventListener('error', () => {
-        reject(new Error('Network error during upload'))
-      })
-
-      xhr.addEventListener('abort', () => {
-        reject(new Error('Upload cancelled'))
-      })
-
-      // Get API base URL - use DigitalOcean production backend
-      const BASE_URL = 'https://nebwork-backend-fx667.ondigitalocean.app';
-
-      // Send request
-      xhr.open('POST', `${BASE_URL}/api/upload`)
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
-      xhr.send(formData)
-    })
-  } catch (error) {
-    console.error('Upload error:', error)
-    throw error
-  }
+    reader.readAsDataURL(file)
+  })
 }
 
 /**
@@ -352,8 +301,8 @@ export const deleteMediaFile = async (url) => {
       throw new Error("Authentication required")
     }
 
-    const BASE_URL = 'https://nebwork-backend-fx667.ondigitalocean.app'
-    
+    const BASE_URL = 'http://127.0.0.1:5001'
+
     const response = await fetch(`${BASE_URL}/api/upload`, {
       method: 'DELETE',
       headers: {
@@ -381,7 +330,7 @@ const ATTR_WHITESPACE = /[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u30
 
 export function isAllowedUri(uri, protocols) {
   const allowedProtocols = [
-    "http", "https", "ftp", "ftps", "mailto", "tel", 
+    "http", "https", "ftp", "ftps", "mailto", "tel",
     "callto", "sms", "cid", "xmpp",
   ]
 

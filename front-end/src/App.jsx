@@ -19,6 +19,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import { validateAndCleanupToken } from './utils/authUtils';
 import Login from "./pages/Login/Login";
+import MyStats from "./pages/MyStats";
 
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => {
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/blog-editor" element={<ProtectedRoute><BlogEditor /></ProtectedRoute>} />
             <Route path="/blog-post" element={<ProtectedRoute><BlogPost /></ProtectedRoute>} />
+            <Route path="/my-stats" element={<ProtectedRoute><MyStats /></ProtectedRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/new-password/:token" element={<NewPassword />} />
             
