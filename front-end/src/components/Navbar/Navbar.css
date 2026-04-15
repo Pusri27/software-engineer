@@ -1,0 +1,88 @@
+.navbar {
+  background-color: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  gap: 1rem;
+}
+
+.navbar-spacer {
+  flex: 0 0 auto;
+  width: 0; /* Hidden spacer, only for layout balance */
+}
+
+.navbar-search {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex: 1;
+  max-width: 42rem;
+  margin: 0 auto; /* center the search container */
+}
+
+.navbar-search-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: hsl(var(--muted-foreground));
+  flex-shrink: 0;
+}
+
+.navbar-search-input {
+  border: 0;
+  background-color: hsl(var(--secondary) / 0.5);
+  flex: 1;
+}
+
+.navbar-search-input:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.navbar-settings-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.navbar-user-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.navbar-user-info {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .navbar-user-info {
+    display: block;
+  }
+}
+
+.navbar-user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.navbar-user-division {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}

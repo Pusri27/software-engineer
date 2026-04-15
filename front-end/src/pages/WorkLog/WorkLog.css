@@ -1,0 +1,73 @@
+/* Styles for WorkLog page */
+.worklog-editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: hsl(var(--background));
+  overflow: hidden;
+  position: relative;
+}
+
+/* Action buttons bar - at page level in WorkLog.jsx */
+.worklog-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background-color: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+  position: sticky;
+  top: calc(var(--tt-navbar-height, 4.5rem) + var(--tt-toolbar-height, 2.75rem));
+  z-index: 30;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.back-button {
+  color: hsl(var(--foreground));
+  flex-shrink: 0;
+}
+
+.worklog-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* Legacy styles - keep for dialogs */
+.worklog-content {
+  flex: 1;
+  padding: 2rem;
+  background-color: hsl(var(--background));
+  overflow-y: auto;
+}
+
+.worklog-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.worklog-title {
+  flex: 1;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.worklog-editor {
+  width: 100%;
+  min-height: 400px;
+  padding: 1rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-size: 1rem;
+  resize: vertical;
+}
+
+.worklog-editor:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+}

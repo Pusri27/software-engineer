@@ -1,0 +1,136 @@
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-area-scroll {
+  flex: 1;
+  padding: 1.5rem;
+}
+
+.chat-area-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.chat-area-empty-content {
+  text-align: center;
+}
+
+.chat-area-empty-title {
+  font-size: 2.25rem;
+  font-weight: bold;
+  color: hsl(var(--accent));
+  margin-bottom: 2rem;
+}
+
+.chat-area-messages {
+  max-width: 48rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.chat-message {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.chat-message-user {
+  justify-content: flex-end;
+}
+
+.chat-message-bot {
+  justify-content: flex-start;
+}
+
+.chat-message-avatar {
+  width: 2rem;
+  height: 2rem;
+}
+
+.chat-message-avatar-bot {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  font-size: 0.75rem;
+}
+
+.chat-message-bubble {
+  border-radius: 1rem;
+  padding: 0.75rem 1rem;
+  max-width: 70%;
+}
+
+.chat-message-bubble-user {
+  background-color: hsl(var(--chat-bubble-user));
+  color: white;
+}
+
+.chat-message-bubble-bot {
+  background-color: hsl(var(--chat-bubble-bot));
+  color: hsl(var(--foreground));
+}
+
+.chat-message-text {
+  font-size: 0.875rem;
+}
+
+.chat-area-input-wrapper {
+  border-top: 1px solid hsl(var(--border));
+  padding: 1rem;
+}
+
+.chat-area-input-container {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.chat-area-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: hsl(var(--secondary) / 0.5);
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  border: 1px solid hsl(var(--border));
+}
+
+.chat-area-input-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.chat-area-input-field {
+  border: 0;
+  background-color: transparent;
+  flex: 1;
+}
+
+.chat-area-input-field:focus-visible {
+  text-rendering: 0;
+}
+
+.chat-area-send-button {
+  border-radius: 9999px;
+  background-color: hsl(var(--accent));
+  height: 2.5rem;
+  width: 2.5rem;
+}
+
+.chat-area-send-button:hover {
+  background-color: hsl(var(--accent) / 0.9);
+}
+
+.chat-area-send-button {
+  color: hsl(var(--accent-foreground));
+}
+
+.chat-area-send-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}

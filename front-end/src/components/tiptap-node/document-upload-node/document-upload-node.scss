@@ -1,0 +1,4 @@
+@use "../shared/upload-shared.scss" as *;
+
+@include upload-theme-variables("tiptap-document");
+@include upload-base-styles("tiptap-document");

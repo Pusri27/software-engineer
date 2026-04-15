@@ -1,0 +1,85 @@
+.tiptap-video-node {
+  margin: 1rem 0;
+  
+  .tiptap-video-wrapper {
+    position: relative;
+    display: inline-block;
+    max-width: 500px;
+
+    @media (max-width: 768px) {
+      max-width: 100%;
+    }
+
+    &:hover {
+      .tiptap-video-delete {
+        opacity: 1;
+      }
+    }
+  }
+
+  .tiptap-video-delete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background-color: rgba(220, 38, 38, 0.9);
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+
+    &:hover {
+      background-color: #dc2626;
+      transform: scale(1.05);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+
+  .tiptap-video {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+    background-color: #000;
+    outline: none;
+
+    &:focus {
+      outline: 2px solid var(--tiptap-color-primary, #3b82f6);
+      outline-offset: 2px;
+    }
+  }
+
+  .tiptap-video-caption {
+    font-size: 0.875rem;
+    color: var(--tiptap-color-text-secondary, #6b7280);
+    text-align: center;
+    padding: 0.25rem 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  &.ProseMirror-selectednode {
+    .tiptap-video-wrapper {
+      outline: 2px solid var(--tiptap-color-primary, #3b82f6);
+      outline-offset: 2px;
+      border-radius: 8px;
+    }
+  }
+}
+
+.dark .tiptap-video-node {
+  .tiptap-video-caption {
+    color: var(--tiptap-color-text-secondary, #9ca3af);
+  }
+}

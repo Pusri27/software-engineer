@@ -1,0 +1,57 @@
+// Title Editor - Large, Bold Title Styling
+.title-editor {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+// Super specific targeting with data attribute
+[data-title-editor="true"].tiptap.ProseMirror,
+.title-editor-content.tiptap.ProseMirror,
+.title-editor .tiptap.ProseMirror {
+  outline: none !important;
+  border: none !important;
+  padding: 0 !important;
+
+  * {
+    font-size: 2rem !important;
+    font-weight: 600 !important;
+  }
+
+  p,
+  p:first-child,
+  p:not(:first-child),
+  div {
+    font-size: 2rem !important;
+    font-weight: 600 !important;
+    line-height: 1.1 !important;
+    color: var(--tt-gray-light-a-900, #111827) !important;
+    margin: 0 !important;
+    margin-top: 0 !important;
+    padding: 1rem 0 !important;
+
+    &.is-editor-empty:first-child::before,
+    &.is-empty::before {
+      content: attr(data-placeholder);
+      float: left;
+      color: var(--tt-gray-light-a-400, #9ca3af);
+      pointer-events: none;
+      height: 0;
+      font-size: 2rem !important;
+      font-weight: 600 !important;
+    }
+  }
+}
+
+// Dark mode
+.dark {
+  [data-title-editor="true"].tiptap.ProseMirror p,
+  .title-editor-content.tiptap.ProseMirror p,
+  .title-editor .tiptap.ProseMirror p {
+    color: var(--tt-gray-dark-a-900, #f9fafb) !important;
+
+    &.is-editor-empty:first-child::before,
+    &.is-empty::before {
+      color: var(--tt-gray-dark-a-400, #6b7280);
+    }
+  }
+}

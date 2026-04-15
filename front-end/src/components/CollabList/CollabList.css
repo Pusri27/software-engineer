@@ -1,0 +1,89 @@
+.collab-list {
+  width: 18rem;
+  border-left: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  padding: 1.5rem;
+  display: none;
+  overflow-y: auto;
+}
+
+@media (min-width: 1024px) {
+  .collab-list {
+    display: block;
+  }
+}
+
+.collab-section {
+  margin-bottom: 2rem;
+}
+
+.collab-section:last-child {
+  margin-bottom: 0;
+}
+
+.collab-list-title {
+  font-weight: bold;
+  font-size: 1.125rem;
+  margin-bottom: 1.5rem;
+}
+
+.collab-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.collab-item-wrapper {
+  position: relative;
+}
+
+.collab-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.collab-item-clickable {
+  cursor: pointer;
+}
+
+.collab-item-clickable:hover {
+  background-color: hsl(var(--secondary) / 0.5);
+}
+
+.collab-menu-button {
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+}
+
+.collab-menu-button:hover {
+  background-color: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+
+.collab-avatar {
+  width: 3rem;
+  height: 3rem;
+}
+
+.collab-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.collab-division {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}

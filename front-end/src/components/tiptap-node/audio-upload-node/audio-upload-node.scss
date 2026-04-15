@@ -1,0 +1,4 @@
+﻿@use "../shared/upload-shared.scss" as *;
+
+@include upload-theme-variables("tiptap-audio");
+@include upload-base-styles("tiptap-audio");

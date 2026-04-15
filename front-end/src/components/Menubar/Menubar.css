@@ -1,0 +1,204 @@
+.menubar {
+  background: linear-gradient(180deg, #1e3a8a, #9333ea);
+  color: hsl(var(--sidebar-text));
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  width: 16rem;
+}
+
+.menubar-collapsed {
+  width: 5rem;
+}
+
+.menubar-header {
+  /* slightly reduce vertical padding so the header border aligns better with the nav area */
+  padding: 1.38rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.menubar-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.menubar-logo-icon {
+  width: 3rem;
+  height: 3rem;
+  background-color: white;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menubar-logo-svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: hsl(var(--sidebar-bg));
+}
+
+.menubar-logo-text {
+  font-weight: bold;
+  font-size: 1.125rem;
+}
+
+.menubar-toggle-btn {
+  color: white;
+}
+
+.menubar-toggle-btn:hover {
+  background-color: hsl(var(--sidebar-hover));
+}
+
+.menubar-toggle-icon {
+  transition: transform 0.3s;
+}
+
+.menubar-toggle-icon-collapsed {
+  transform: rotate(180deg);
+}
+
+.menubar-toggle-container {
+  display: flex;
+  justify-content: flex-end; /* align the toggle to the right */
+  margin-bottom: 0.25rem; /* tighten spacing so the border lines align */
+}
+
+.menubar-logo-img {
+  height: 1.7rem; /* a bit bigger */
+  width: auto;
+  display: block;
+  object-fit: contain; /* maintain aspect ratio, no squishing */
+}
+
+.menubar-collapsed-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.menubar-collapsed-logo-img {
+  height: 2.5rem;
+  width: auto;
+  display: block;
+  object-fit: contain; /* maintain aspect ratio, no squishing */
+}
+
+.menubar-collapsed .menubar-toggle-container {
+  justify-content: center; /* centers it instead of flex-end */
+}
+
+.menubar-nav {
+  flex: 1;
+  /* match top padding with header vertical padding so separators align */
+  padding: 0.75rem 1rem;
+}
+
+.menubar-collapsed .menubar-nav {
+  padding: 0.75rem 0; /* remove horizontal padding when collapsed for perfect centering */
+}
+
+.menubar-nav-section {
+  margin-bottom: 1.5rem;
+}
+
+.menubar-nav-label {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 0.75rem;
+}
+
+.menubar-nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-left: 0.5rem; /* shift to the right to match recent projects */
+}
+
+.menubar-collapsed .menubar-nav-items {
+  margin-left: 0; /* remove left margin when collapsed */
+  align-items: center; /* center align items */
+  width: 100%; /* full width for proper centering */
+}
+
+.menubar-nav-items a {
+  width: 100%;
+  display: block;
+}
+
+.menubar-collapsed .menubar-nav-items a {
+  width: 100%; /* full width to use parent centering */
+  display: flex; /* use flex for centering */
+  justify-content: center; /* center the button */
+}
+
+.menubar-nav-button {
+  width: 100%;
+  justify-content: flex-start !important;
+  gap: 0.75rem;
+  color: white;
+  padding: 0.5rem; /* reset padding */
+  padding-left: 1.25rem; /* shift icons to the right to align with recent projects */
+  text-align: left;
+  display: flex;
+  align-items: center;
+}
+
+.menubar-collapsed .menubar-nav-button {
+  padding: 0.5rem; /* reset all padding */
+  justify-content: center !important;
+  width: 2.5rem; /* same as icon button size (40px) */
+  height: 2.5rem; /* same as icon button size (40px) */
+  min-width: 2.5rem; /* prevent shrinking */
+}
+
+.menubar-nav-button:hover {
+  background-color: hsl(var(--sidebar-hover));
+}
+
+.menubar-nav-button-active {
+  background-color: hsl(var(--sidebar-active));
+  color: hsl(var(--primary));
+}
+
+.menubar-nav-button-active:hover {
+  background-color: hsl(var(--sidebar-active));
+}
+
+.menubar-nav-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.menubar-recent-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 1.5rem;
+}
+
+.menubar-recent-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-left: 0.5rem; /* shift recent projects to the right */
+}
+
+.menubar-recent-button {
+  width: calc(100% - 0.5rem);
+  text-align: left;
+  padding: 0.75rem;
+  padding-left: 1.25rem; /* align text with menu items (accounting for icon width) */
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.menubar-recent-button:hover {
+  background-color: hsl(var(--sidebar-hover));
+}

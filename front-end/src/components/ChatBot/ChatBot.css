@@ -1,0 +1,27 @@
+.chatbot-container {
+  display: flex;
+  height: 100vh;
+  background-color: hsl(var(--background));
+}
+
+.chatbot-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chatbot-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.chatbot-sidebar {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+

@@ -1,0 +1,299 @@
+// Shared upload component styles
+@mixin upload-base-styles($prefix) {
+  .#{$prefix}-upload {
+    margin: 2rem 0;
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .#{$prefix}-upload-dropzone {
+      position: relative;
+      width: 3.125rem;
+      height: 3.75rem;
+      display: inline-flex;
+      align-items: flex-start;
+      justify-content: center;
+      -webkit-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    .#{$prefix}-upload-icon-container {
+      position: absolute;
+      width: 1.75rem;
+      height: 1.75rem;
+      bottom: 0;
+      right: 0;
+      background-color: var(--#{$prefix}-upload-icon-bg);
+      border-radius: var(--tt-radius-lg, 0.75rem);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .#{$prefix}-upload-icon {
+      width: 0.875rem;
+      height: 0.875rem;
+      color: var(--#{$prefix}-upload-icon-color);
+    }
+
+    .#{$prefix}-upload-dropzone-rect-primary {
+      color: var(--#{$prefix}-upload-icon-doc-bg);
+      position: absolute;
+    }
+
+    .#{$prefix}-upload-dropzone-rect-secondary {
+      position: absolute;
+      top: 0;
+      right: 0.25rem;
+      bottom: 0;
+      color: var(--#{$prefix}-upload-icon-doc-border);
+    }
+
+    .#{$prefix}-upload-text {
+      color: var(--#{$prefix}-upload-text-color);
+      font-weight: 500;
+      font-size: 0.875rem;
+      line-height: normal;
+
+      em {
+        font-style: normal;
+        text-decoration: underline;
+      }
+    }
+
+    .#{$prefix}-upload-subtext {
+      color: var(--#{$prefix}-upload-subtext-color);
+      font-weight: 600;
+      line-height: normal;
+      font-size: 0.75rem;
+    }
+
+    .#{$prefix}-upload-delete-zone {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: none;
+      background-color: rgba(220, 38, 38, 0.1);
+      color: #dc2626;
+      border-radius: 4px;
+      cursor: pointer;
+      opacity: 0;
+      transition: all 0.2s ease;
+
+      svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      &:hover {
+        background-color: #dc2626;
+        color: white;
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+
+    .#{$prefix}-upload-drag-area {
+      padding: 2rem 1.5rem;
+      border: 1.5px dashed var(--#{$prefix}-upload-border);
+      border-radius: var(--tt-radius-md, 0.5rem);
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s ease;
+      background-color: var(--#{$prefix}-upload-bg);
+
+      &:hover {
+        border-color: var(--#{$prefix}-upload-border-hover);
+        background-color: var(--#{$prefix}-upload-bg-hover);
+
+        .#{$prefix}-upload-delete-zone {
+          opacity: 1;
+        }
+      }
+
+      &.drag-active {
+        border-color: var(--#{$prefix}-upload-border-active);
+        background-color: rgba(
+          var(--#{$prefix}-upload-active-rgb, 0, 123, 255),
+          0.05
+        );
+      }
+
+      &.drag-over {
+        border-color: var(--#{$prefix}-upload-border-active);
+        background-color: rgba(
+          var(--#{$prefix}-upload-active-rgb, 0, 123, 255),
+          0.1
+        );
+      }
+    }
+
+    .#{$prefix}-upload-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0.25rem;
+      -webkit-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    .#{$prefix}-upload-previews {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .#{$prefix}-upload-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--#{$prefix}-upload-border);
+      margin-bottom: 0.5rem;
+
+      span {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--#{$prefix}-upload-text-color);
+      }
+    }
+
+    .#{$prefix}-upload-preview {
+      position: relative;
+      border-radius: var(--tt-radius-md, 0.5rem);
+      overflow: hidden;
+
+      .#{$prefix}-upload-progress {
+        position: absolute;
+        inset: 0;
+        background-color: var(--#{$prefix}-upload-progress-bg);
+        transition: all 300ms ease-out;
+      }
+
+      .#{$prefix}-upload-preview-content {
+        position: relative;
+        border: 1px solid var(--#{$prefix}-upload-border);
+        border-radius: var(--tt-radius-md, 0.5rem);
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .#{$prefix}-upload-file-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        height: 2rem;
+
+        .#{$prefix}-upload-file-icon {
+          padding: 0.5rem;
+          background-color: var(--#{$prefix}-upload-icon-bg);
+          border-radius: var(--tt-radius-lg, 0.75rem);
+
+          svg {
+            width: 0.875rem;
+            height: 0.875rem;
+            color: var(--#{$prefix}-upload-icon-color);
+          }
+        }
+      }
+
+      .#{$prefix}-upload-details {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .#{$prefix}-upload-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        .#{$prefix}-upload-progress-text {
+          font-size: 0.75rem;
+          color: var(--#{$prefix}-upload-border-active);
+          font-weight: 600;
+        }
+      }
+    }
+  }
+
+  .tiptap.ProseMirror.ProseMirror-focused {
+    .ProseMirror-selectednode .#{$prefix}-upload-drag-area {
+      border-color: var(--#{$prefix}-upload-active);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .#{$prefix}-upload {
+      .#{$prefix}-upload-drag-area {
+        padding: 1.5rem 1rem;
+      }
+
+      .#{$prefix}-upload-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+
+      .#{$prefix}-upload-preview-content {
+        padding: 0.75rem;
+      }
+    }
+  }
+}
+
+@mixin upload-theme-variables($prefix) {
+  :root {
+    --#{$prefix}-upload-active: var(--tt-brand-color-500);
+    --#{$prefix}-upload-progress-bg: var(--tt-brand-color-50);
+    --#{$prefix}-upload-icon-bg: var(--tt-brand-color-500);
+
+    --#{$prefix}-upload-text-color: var(--tt-gray-light-a-700);
+    --#{$prefix}-upload-subtext-color: var(--tt-gray-light-a-400);
+    --#{$prefix}-upload-border: var(--tt-gray-light-a-300);
+    --#{$prefix}-upload-border-hover: var(--tt-gray-light-a-400);
+    --#{$prefix}-upload-border-active: var(--tt-brand-color-500);
+
+    --#{$prefix}-upload-icon-doc-bg: var(--tt-gray-light-a-200);
+    --#{$prefix}-upload-icon-doc-border: var(--tt-gray-light-300);
+    --#{$prefix}-upload-icon-color: var(--white);
+    
+    --#{$prefix}-upload-bg: white;
+    --#{$prefix}-upload-bg-hover: var(--tt-gray-light-50, #f9fafb);
+  }
+
+  .dark {
+    --#{$prefix}-upload-active: var(--tt-brand-color-400);
+    --#{$prefix}-upload-progress-bg: var(--tt-brand-color-900);
+    --#{$prefix}-upload-icon-bg: var(--tt-brand-color-400);
+
+    --#{$prefix}-upload-text-color: var(--tt-gray-dark-a-700);
+    --#{$prefix}-upload-subtext-color: var(--tt-gray-dark-a-400);
+    --#{$prefix}-upload-border: var(--tt-gray-dark-a-300);
+    --#{$prefix}-upload-border-hover: var(--tt-gray-dark-a-400);
+    --#{$prefix}-upload-border-active: var(--tt-brand-color-400);
+
+    --#{$prefix}-upload-icon-doc-bg: var(--tt-gray-dark-a-200);
+    --#{$prefix}-upload-icon-doc-border: var(--tt-gray-dark-300);
+    --#{$prefix}-upload-icon-color: var(--black);
+    
+    --#{$prefix}-upload-bg: var(--tt-gray-dark-900, #111827);
+    --#{$prefix}-upload-bg-hover: var(--tt-gray-dark-800, #1f2937);
+  }
+}

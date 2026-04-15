@@ -1,0 +1,239 @@
+/* Import external stylesheets first (CSS rule: @import must come before all other statements) */
+@import './styles/_variables.scss';
+@import './styles/_keyframe-animations.scss';
+
+/* Tailwind directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 245 25% 97%;
+    --foreground: 240 45% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 45% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 45% 15%;
+
+    --primary: 240 50% 25%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 245 30% 92%;
+    --secondary-foreground: 240 45% 15%;
+
+    --muted: 245 20% 90%;
+    --muted-foreground: 240 15% 50%;
+
+    --accent: 250 70% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 245 20% 88%;
+    --input: 245 20% 88%;
+    --ring: 250 70% 60%;
+
+    --radius: 0.75rem;
+    
+    --sidebar-bg: 240 50% 25%;
+    --sidebar-hover: 240 45% 30%;
+    --sidebar-active: 245 30% 92%;
+    --sidebar-text: 0 0% 100%;
+    
+    --chat-bubble-user: 250 70% 60%;
+    --chat-bubble-bot: 245 25% 95%;
+    
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 240 45% 8%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 40% 12%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 40% 12%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 240 50% 25%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 35% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 30% 18%;
+    --muted-foreground: 240 10% 65%;
+
+    --accent: 250 70% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 30% 20%;
+    --input: 240 30% 20%;
+    --ring: 250 70% 60%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Tiptap Editor Integration Layer */
+@layer components {
+  /* Map Tiptap toolbar variables to Tailwind design tokens */
+  :root {
+    /* Tiptap toolbar colors - mapped to your design system */
+    --tt-toolbar-bg-color: hsl(var(--card));
+    --tt-toolbar-border-color: hsl(var(--border));
+    --tt-toolbar-height: 2.75rem;
+    --tt-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    
+    /* Tiptap color palette (grayscale) */
+    --white: hsl(0 0% 100%);
+    --black: hsl(240 45% 8%);
+    --tt-gray-light-a-100: hsl(var(--border));
+    --tt-gray-light-a-400: hsl(var(--muted-foreground));
+    --tt-gray-dark-a-50: hsl(240 30% 20%);
+    
+    /* Tiptap spacing & radius */
+    --tt-radius-lg: var(--radius);
+    --tt-shadow-elevated-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .dark {
+    --tt-toolbar-bg-color: hsl(var(--card));
+    --tt-toolbar-border-color: hsl(var(--border));
+    --tt-shadow-elevated-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Tiptap Editor base styles */
+  .tiptap-editor,
+  .editor-wrapper {
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    min-height: 300px;
+  }
+
+  /* ProseMirror content area */
+  .ProseMirror {
+    padding: 1rem;
+    outline: none;
+    min-height: 250px;
+  }
+
+  /* Tiptap toolbar buttons integration */
+  .tiptap-toolbar button {
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid transparent;
+    background-color: transparent;
+    color: hsl(var(--foreground));
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+
+  .tiptap-toolbar button:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
+
+  .tiptap-toolbar button:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  .tiptap-toolbar button[data-state="active"] {
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+  }
+
+  .tiptap-toolbar button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Collaboration cursor styles */
+  .collaboration-cursor__caret {
+    border-left: 2px solid;
+    border-color: currentColor;
+    margin-left: -1px;
+    margin-right: -1px;
+    pointer-events: none;
+    position: relative;
+    word-break: normal;
+  }
+
+  .collaboration-cursor__label {
+    border-radius: 3px 3px 3px 0;
+    color: #fff;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 600;
+    left: -1px;
+    line-height: normal;
+    padding: 2px 6px;
+    position: absolute;
+    top: -1.4em;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  /* Y.js collaboration selection styles */
+  .ProseMirror-yjs-cursor {
+    position: relative;
+    margin-left: -1px;
+    margin-right: -1px;
+    border-left: 2px solid;
+    border-color: currentColor;
+    word-break: normal;
+    pointer-events: none;
+  }
+
+  .ProseMirror-yjs-selection {
+    background-color: currentColor;
+    opacity: 0.3;
+  }
+}
